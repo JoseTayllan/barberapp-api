@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="BarberApp.API/BarberApp.API.csproj" />
+  <Project Path="BarberApp.Application/BarberApp.Application.csproj" />
+  <Project Path="BarberApp.Domain/BarberApp.Domain.csproj" />
+  <Project Path="BarberApp.Infrastructure/BarberApp.Infrastructure.csproj" />
+</Solution>
