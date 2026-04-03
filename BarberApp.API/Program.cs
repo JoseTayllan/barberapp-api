@@ -10,6 +10,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
+using FluentValidation;
+using FluentValidation.AspNetCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Banco
@@ -54,6 +57,10 @@ builder.Services.AddScoped<IServicoRepository, ServicoRepository>();
 builder.Services.AddScoped<IAgendamentoRepository, AgendamentoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 
+// FluentValidation
+builder.Services.AddValidatorsFromAssemblyContaining<BarberApp.Application.Validators.CriarBarbeiroValidator>();
+
+
 // Services
 builder.Services.AddScoped<BarbeiroService>();
 builder.Services.AddScoped<ServicoService>();
@@ -61,7 +68,22 @@ builder.Services.AddScoped<AgendamentoService>();
 builder.Services.AddScoped<ClienteService>();
 builder.Services.AddScoped<TokenService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+.ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var erros = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .SelectMany(e => e.Value!.Errors)
+                .Select(e => e.ErrorMessage)
+                .ToList();
+
+            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new { erros });
+        };
+    });
+
+builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger com JWT
