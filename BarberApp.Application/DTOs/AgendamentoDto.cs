@@ -11,7 +11,6 @@ public record AgendamentoResponse(
 );
 
 public record CriarAgendamentoRequest(
-    Guid ClienteId,
     Guid BarbeiroId,
     Guid ServicoId,
     DateTime DataHora,

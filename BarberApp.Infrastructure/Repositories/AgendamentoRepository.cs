@@ -24,7 +24,7 @@ namespace BarberApp.Infrastructure.Repositories
                 .Include(a => a.Cliente)
                 .Include(a => a.Barbeiro)
                 .Include(a => a.Servico)
-                .Include(a => a.DataHora)
+                .OrderBy(a => a.DataHora)
                 .ToListAsync();
 
         public async Task<Agendamento?> ObterPorIdAsync(Guid id) =>
@@ -50,5 +50,13 @@ namespace BarberApp.Infrastructure.Repositories
             _context.Agendamentos.Update(agendamento);
             await _context.SaveChangesAsync();
         }
+        public async Task<IEnumerable<Agendamento>> ObterPorClienteAsync(Guid clienteId) =>
+        await _context.Agendamentos
+           .Include(a => a.Cliente)
+           .Include(a => a.Barbeiro)
+           .Include(a => a.Servico)
+           .Where(a => a.ClienteId == clienteId)
+           .OrderBy(a => a.DataHora)
+           .ToListAsync();
     }
 }

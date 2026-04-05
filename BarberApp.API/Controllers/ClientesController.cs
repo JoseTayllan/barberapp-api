@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BarberApp.Application.DTOs;
 using BarberApp.Application.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -45,5 +46,19 @@ public class ClientesController : ControllerBase
         {
             return BadRequest(new { mensagem = ex.Message });
         }
+    }
+
+    [HttpGet("meu-perfil")]
+    [Authorize]
+    public async Task<IActionResult> MeuPerfil()
+    {
+        var email = User.FindFirstValue(ClaimTypes.Email)!;
+        var clientes = await _service.ObterPorEmailAsync(email);
+
+        if (clientes is null)
+            return NotFound(new { mensagem = "Perfil de cliente não encontrado. Cadastre-se em POST /api/clientes." });
+
+        return Ok(new ClienteResponse(
+            clientes.Id, clientes.Nome, clientes.Email, clientes.Telefone));
     }
 }

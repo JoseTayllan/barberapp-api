@@ -15,5 +15,7 @@ namespace BarberApp.Domain.Interfaces
         Task AdicionarAsync(Agendamento agendamento);
         Task AtualizarAsync(Agendamento agendamento);
 
+        Task<IEnumerable<Agendamento>> ObterPorClienteAsync(Guid clienteId);
+
     }
 }

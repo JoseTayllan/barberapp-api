@@ -18,11 +18,12 @@ namespace BarberApp.Infrastructure.Data
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<Servico> Servicos => Set<Servico>();
         public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
+        public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder); // importante — inicializa tabelas do Identity
-             
+
             // Barbeiro
             modelBuilder.Entity<Barbeiro>(e =>
             {
@@ -51,11 +52,11 @@ namespace BarberApp.Infrastructure.Data
             modelBuilder.Entity<Agendamento>(e =>
             {
                 e.HasKey(a => a.Id);
-                 
-                 e.HasOne(a => a.Cliente)
-                    .WithMany()
-                    .HasForeignKey(a => a.ClienteId)
-                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(a => a.Cliente)
+                   .WithMany()
+                   .HasForeignKey(a => a.ClienteId)
+                   .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasOne(a => a.Barbeiro)
                     .WithMany()
@@ -67,6 +68,21 @@ namespace BarberApp.Infrastructure.Data
                     .HasForeignKey(a => a.ServicoId)
                     .OnDelete(DeleteBehavior.Restrict);
                 e.Property(a => a.Status)
+                    .HasConversion<string>();
+            });
+
+            modelBuilder.Entity<Pagamento>(e =>
+            {
+                e.HasKey(p => p.Id);
+
+                e.HasOne(p => p.Agendamento)
+                    .WithOne()
+                    .HasForeignKey<Pagamento>(p => p.AgendamentoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.Property(p => p.Valor)
+                .HasColumnType("numeric(10,2)");
+                e.Property(p => p.Status)
                     .HasConversion<string>();
             });
         }

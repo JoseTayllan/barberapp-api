@@ -12,40 +12,43 @@ namespace BarberApp.Application.Services
         private readonly IAgendamentoRepository _agendamentoRepo;
         private readonly IBarbeiroRepository _barbeiroRepo;
         private readonly IServicoRepository _servicoRepo;
+        private readonly IClienteRepository _clienteRepo;
 
         public AgendamentoService(
             IAgendamentoRepository agendamentoRepo,
             IBarbeiroRepository barbeiroRepo,
-            IServicoRepository servicoRepo)
+            IServicoRepository servicoRepo,
+            IClienteRepository clienteRepo)
         {
             _agendamentoRepo = agendamentoRepo;
             _barbeiroRepo = barbeiroRepo;
             _servicoRepo = servicoRepo;
+            _clienteRepo = clienteRepo;
         }
 
-        public async Task<Agendamento> CriarAsync(Guid clienteId, Guid barbeiroId, Guid servicoId, DateTime dateHora, string? observacao = null)
+        public async Task<Agendamento> CriarAsync(string emailCliente, Guid barbeiroId, Guid servicoId, DateTime dataHora, string? observacao)
         {
-            // Valida se barbeiro existe
+            // Resolve o cliente pelo email do token
+            var cliente = await _clienteRepo.ObterPorEmailAsync(emailCliente)
+                ?? throw new Exception("Perfil de cliente não encontrado.");
+
             var barbeiro = await _barbeiroRepo.ObterPorIdAsync(barbeiroId)
-                ?? throw new Exception("Barbeiro não encontrado");
+                ?? throw new Exception("Barbeiro não encontrado.");
 
-            // Valida se serviço existe
             var servico = await _servicoRepo.ObterPorIdAsync(servicoId)
-                ?? throw new Exception("Serviço não encontrado");
+                ?? throw new Exception("Serviço não encontrado.");
 
-            // Verifica conflito de horário
             var agendamentosDoDia = await _agendamentoRepo
-            .ObterPorBarbeiroEDataAsync(barbeiroId, dateHora.Date);
+                .ObterPorBarbeiroEDataAsync(barbeiroId, dataHora);
 
             var conflito = agendamentosDoDia.Any(a =>
-            a.DataHora < dateHora.AddMinutes(servico.DuracaoMinuto) &&
-            dateHora < a.DataHora.AddMinutes(servico.DuracaoMinuto)
-            );
+                a.DataHora < dataHora.AddMinutes(servico.DuracaoMinuto) &&
+                dataHora < a.DataHora.AddMinutes(servico.DuracaoMinuto));
 
             if (conflito)
                 throw new Exception("Já existe um agendamento neste horário para este barbeiro.");
 
-            var agendamento = new Agendamento(clienteId, barbeiroId, servicoId, dateHora, observacao);
+            var agendamento = new Agendamento(cliente.Id, barbeiroId, servicoId, dataHora, observacao);
             await _agendamentoRepo.AdicionarAsync(agendamento);
             return agendamento;
         }
@@ -73,6 +76,9 @@ namespace BarberApp.Application.Services
             agendamento.Cancelar();
             await _agendamentoRepo.AtualizarAsync(agendamento);
         }
+
+        public async Task<IEnumerable<Agendamento>> ListarPorClienteAsync(Guid clienteId) =>
+            await _agendamentoRepo.ObterPorClienteAsync(clienteId);
 
     }
 }

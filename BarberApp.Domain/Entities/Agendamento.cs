@@ -34,7 +34,7 @@ namespace BarberApp.Domain.Entities
 
         public void Confirmar()
         {
-            if (Status == StatusAgendamento.Pendente)
+            if (Status != StatusAgendamento.Pendente)
                 throw new InvalidOperationException("Somente agendamento pendentes podem ser confirmados.");
 
             Status = StatusAgendamento.Confirmado;

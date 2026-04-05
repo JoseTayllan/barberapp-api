@@ -12,15 +12,18 @@ public class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly TokenService _tokenService;
+    private readonly ClienteService _clienteService;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        TokenService tokenService)
+        TokenService tokenService,
+        ClienteService clienteService)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _tokenService = tokenService;
+        _clienteService = clienteService;
     }
 
     [HttpPost("registro")]
@@ -40,10 +43,19 @@ public class AuthController : ControllerBase
 
         await _userManager.AddToRoleAsync(user, "Cliente");
 
+        // Cria o perfil de cliente automaticamente
+        await _clienteService.CriarAsync(request.NomeCompleto, request.Email, request.Telefone);
+
         var roles = await _userManager.GetRolesAsync(user);
         var token = _tokenService.GerarToken(user.Id, user.Email!, user.NomeCompleto, roles);
 
-        return Ok(new AuthResponse(token, user.NomeCompleto, user.Email!, roles, DateTime.UtcNow.AddHours(8)));
+        return Ok(new AuthResponse(
+            token,
+            user.NomeCompleto,
+            user.Email!,
+            roles,
+            DateTime.UtcNow.AddHours(8)
+        ));
     }
 
     [HttpPost("login")]

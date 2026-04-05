@@ -25,4 +25,6 @@ public class ClienteService
 
     public async Task<Cliente?> ObterPorIdAsync(Guid id) =>
         await _repository.ObterPorIdAsync(id);
+    public async Task<Cliente?> ObterPorEmailAsync(string email) =>
+    await _repository.ObterPorEmailAsync(email);
 }
