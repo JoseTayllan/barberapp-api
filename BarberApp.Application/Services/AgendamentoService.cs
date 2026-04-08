@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using BarberApp.Application.DTOs;
 using BarberApp.Domain.Entities;
 using BarberApp.Domain.Interfaces;
-
+using Microsoft.Extensions.Configuration;
+using Microsoft.VisualBasic;
 namespace BarberApp.Application.Services
 {
     public class AgendamentoService
@@ -13,17 +15,20 @@ namespace BarberApp.Application.Services
         private readonly IBarbeiroRepository _barbeiroRepo;
         private readonly IServicoRepository _servicoRepo;
         private readonly IClienteRepository _clienteRepo;
+        private readonly IConfiguration _configuration;
 
         public AgendamentoService(
             IAgendamentoRepository agendamentoRepo,
             IBarbeiroRepository barbeiroRepo,
             IServicoRepository servicoRepo,
-            IClienteRepository clienteRepo)
+            IClienteRepository clienteRepo,
+            IConfiguration configuration)
         {
             _agendamentoRepo = agendamentoRepo;
             _barbeiroRepo = barbeiroRepo;
             _servicoRepo = servicoRepo;
             _clienteRepo = clienteRepo;
+            _configuration = configuration;
         }
 
         public async Task<Agendamento> CriarAsync(string emailCliente, Guid barbeiroId, Guid servicoId, DateTime dataHora, string? observacao)
@@ -80,5 +85,69 @@ namespace BarberApp.Application.Services
         public async Task<IEnumerable<Agendamento>> ListarPorClienteAsync(Guid clienteId) =>
             await _agendamentoRepo.ObterPorClienteAsync(clienteId);
 
+        public async Task<IEnumerable<HorarioDisponivelResponse>> ObterHorariosDisponiveisAsync(
+     Guid barbeiroId, Guid servicoId, DateTime data)
+        {
+            // Fuso horário de Brasília
+            var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+            var agoraBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fusoHorario);
+
+            var aberturaStr = _configuration["Barbearia:HorarioAbertura"]
+                ?? throw new Exception("Configuração 'Barbearia:HorarioAbertura' não encontrada.");
+            var fechamentoStr = _configuration["Barbearia:HorarioFechamento"]
+                ?? throw new Exception("Configuração 'Barbearia:HorarioFechamento' não encontrada.");
+
+            var abertura = TimeSpan.Parse(aberturaStr);
+            var fechamento = TimeSpan.Parse(fechamentoStr);
+
+            var barbeiro = await _barbeiroRepo.ObterPorIdAsync(barbeiroId)
+                ?? throw new Exception("Barbeiro não encontrado.");
+
+            var servico = await _servicoRepo.ObterPorIdAsync(servicoId)
+                ?? throw new Exception("Serviço não encontrado.");
+
+            // Busca agendamentos usando UTC
+            var dataUtc = DateTime.SpecifyKind(data.Date, DateTimeKind.Utc);
+            var agendamentosDoDia = await _agendamentoRepo
+                .ObterPorBarbeiroEDataAsync(barbeiroId, dataUtc);
+
+            var agendamentosAtivos = agendamentosDoDia
+                .Where(a => a.Status == Domain.Enums.StatusAgendamento.Pendente ||
+                            a.Status == Domain.Enums.StatusAgendamento.Confirmado)
+                .ToList();
+
+            var slots = new List<HorarioDisponivelResponse>();
+
+            // Gera slots no horário de Brasília
+            var slotAtual = data.Date.Add(abertura);
+            var fim = data.Date.Add(fechamento);
+
+            while (slotAtual.AddMinutes(servico.DuracaoMinuto) <= fim)
+            {
+                // Converte o slot para UTC para comparar com os agendamentos do banco
+                var slotUtc = TimeZoneInfo.ConvertTimeToUtc(
+                    DateTime.SpecifyKind(slotAtual, DateTimeKind.Unspecified), fusoHorario);
+
+                var ocupado = agendamentosAtivos.Any(a =>
+                {
+                    var inicioAgendamento = a.DataHora;
+                    var fimAgendamento = a.DataHora.AddMinutes(servico.DuracaoMinuto);
+                    var fimSlotUtc = slotUtc.AddMinutes(servico.DuracaoMinuto);
+                    return slotUtc < fimAgendamento && fimSlotUtc > inicioAgendamento;
+                });
+
+                // Compara com horário atual de Brasília
+                var disponivel = !ocupado && slotAtual > agoraBrasilia;
+
+                slots.Add(new HorarioDisponivelResponse(
+                    slotAtual.ToString("HH:mm"),
+                    disponivel
+                ));
+
+                slotAtual = slotAtual.AddMinutes(servico.DuracaoMinuto);
+            }
+
+            return slots;
+        }
     }
 }

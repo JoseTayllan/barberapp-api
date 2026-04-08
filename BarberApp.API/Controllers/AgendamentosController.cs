@@ -129,4 +129,34 @@ public class AgendamentosController : ControllerBase
             return BadRequest(new { mensagem = ex.Message });
         }
     }
+    [HttpGet("horarios-disponiveis")]
+    [AllowAnonymous]
+    public async Task<IActionResult> HorariosDisponiveis(
+    [FromQuery] Guid barbeiroId,
+    [FromQuery] Guid servicoId,
+    [FromQuery] string data)
+    {
+        try
+        {
+            // Aceita formato brasileiro dd/MM/yyyy ou internacional yyyy-MM-dd
+            var formatos = new[] { "dd/MM/yyyy", "yyyy-MM-dd" };
+
+            if (!DateTime.TryParseExact(data, formatos,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var dataParsed))
+            {
+                return BadRequest(new { mensagem = "Formato de data inválido. Use: 10/04/2026 ou 2026-04-10" });
+            }
+
+            var horarios = await _service.ObterHorariosDisponiveisAsync(
+                barbeiroId, servicoId, dataParsed.Date);
+
+            return Ok(horarios);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { mensagem = ex.Message });
+        }
+    }
 }

@@ -33,11 +33,16 @@ namespace BarberApp.Infrastructure.Repositories
                 .Include(a => a.Barbeiro)
                 .Include(a => a.Servico)
                 .FirstOrDefaultAsync(a => a.Id == id);
-        public async Task<IEnumerable<Agendamento>> ObterPorBarbeiroEDataAsync(Guid barbeiroId, DateTime data) =>
-        await _context.Agendamentos
-            .Where(a => a.BarbeiroId == barbeiroId && a.DataHora.Date == data.Date)
-            .OrderBy(a => a.DataHora)
-            .ToListAsync();
+        public async Task<IEnumerable<Agendamento>> ObterPorBarbeiroEDataAsync(Guid barbeiroId, DateTime data)
+        {
+            var dataUtc = DateTime.SpecifyKind(data.Date, DateTimeKind.Utc);
+
+            return await _context.Agendamentos
+                .Where(a => a.BarbeiroId == barbeiroId &&
+                            a.DataHora.Date == dataUtc.Date)
+                .OrderBy(a => a.DataHora)
+                .ToListAsync();
+        }
 
         public async Task AdicionarAsync(Agendamento agendamento)
         {

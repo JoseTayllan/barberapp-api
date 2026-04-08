@@ -16,3 +16,8 @@ public record CriarAgendamentoRequest(
     DateTime DataHora,
     string? Observacao
 );
+
+public record HorarioDisponivelResponse(
+    string Horario,
+    bool Disponivel
+);
