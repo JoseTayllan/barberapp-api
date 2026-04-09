@@ -66,6 +66,8 @@ Migrations/
  20260402232745_AddIdentity.Designer.cs
  20260405124433_AddPagamento.cs
  20260405124433_AddPagamento.Designer.cs
+ 20260409204604_AddDisponibilidadeBarbeiro.cs
+ 20260409204604_AddDisponibilidadeBarbeiro.Designer.cs
  AppDbContextModelSnapshot.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
@@ -76,6 +78,7 @@ Repositories/
  AgendamentoRepository.cs
  BarbeiroRepository.cs
  ClienteRepository.cs
+ DisponibilidadeRepository.cs
  PagamentoRepository.cs
  ServicoRepository.cs
 

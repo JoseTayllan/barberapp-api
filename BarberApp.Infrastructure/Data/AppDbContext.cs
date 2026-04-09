@@ -19,6 +19,7 @@ namespace BarberApp.Infrastructure.Data
         public DbSet<Servico> Servicos => Set<Servico>();
         public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
         public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
+        public DbSet<DisponibilidadeBarbeiro> DisponibilidadesBarbeiros => Set<DisponibilidadeBarbeiro>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -84,6 +85,20 @@ namespace BarberApp.Infrastructure.Data
                 .HasColumnType("numeric(10,2)");
                 e.Property(p => p.Status)
                     .HasConversion<string>();
+            });
+
+            modelBuilder.Entity<DisponibilidadeBarbeiro>(e =>
+            {
+                e.HasKey(d => d.Id);
+                e.HasOne(d => d.Barbeiro)
+                .WithMany()
+                .HasForeignKey(d => d.BarbeiroId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+                e.Property(d => d.DiaSemana).HasConversion<string>();
+
+                // Garante que cada Barbeiro Tem só uma entreda por dia
+                e.HasIndex(d => new { d.BarbeiroId, d.DiaSemana }).IsUnique();
             });
         }
 

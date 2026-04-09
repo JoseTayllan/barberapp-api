@@ -62,6 +62,7 @@ Controllers/
  AuthController.cs
  BarbeirosController.cs
  ClientesController.cs
+ DisponibilidadesController.cs
  PagamentosController.cs
  ServicosController.cs
 obj/Debug/net10.0/

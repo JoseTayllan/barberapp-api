@@ -16,19 +16,22 @@ namespace BarberApp.Application.Services
         private readonly IServicoRepository _servicoRepo;
         private readonly IClienteRepository _clienteRepo;
         private readonly IConfiguration _configuration;
+        private readonly DisponibilidadeService _disponibilidadeService;
 
         public AgendamentoService(
             IAgendamentoRepository agendamentoRepo,
             IBarbeiroRepository barbeiroRepo,
             IServicoRepository servicoRepo,
             IClienteRepository clienteRepo,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            DisponibilidadeService disponibilidadeService)
         {
             _agendamentoRepo = agendamentoRepo;
             _barbeiroRepo = barbeiroRepo;
             _servicoRepo = servicoRepo;
             _clienteRepo = clienteRepo;
             _configuration = configuration;
+            _disponibilidadeService = disponibilidadeService;
         }
 
         public async Task<Agendamento> CriarAsync(string emailCliente, Guid barbeiroId, Guid servicoId, DateTime dataHora, string? observacao)
@@ -92,13 +95,14 @@ namespace BarberApp.Application.Services
             var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
             var agoraBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fusoHorario);
 
-            var aberturaStr = _configuration["Barbearia:HorarioAbertura"]
-                ?? throw new Exception("Configuração 'Barbearia:HorarioAbertura' não encontrada.");
-            var fechamentoStr = _configuration["Barbearia:HorarioFechamento"]
-                ?? throw new Exception("Configuração 'Barbearia:HorarioFechamento' não encontrada.");
+            var diaSemana = (Domain.Enums.DiaSemana)data.DayOfWeek;
+            var agenda = await _disponibilidadeService.ObterPorDiaAsync(barbeiroId, diaSemana);
 
-            var abertura = TimeSpan.Parse(aberturaStr);
-            var fechamento = TimeSpan.Parse(fechamentoStr);
+            if (agenda is null)
+                throw new Exception($"O barbeiro não atende neste dia da semana.");
+
+            var abertura = agenda.HoraInicio;
+            var fechamento = agenda.HoraFim;
 
             var barbeiro = await _barbeiroRepo.ObterPorIdAsync(barbeiroId)
                 ?? throw new Exception("Barbeiro não encontrado.");
@@ -121,6 +125,11 @@ namespace BarberApp.Application.Services
             // Gera slots no horário de Brasília
             var slotAtual = data.Date.Add(abertura);
             var fim = data.Date.Add(fechamento);
+
+            // DEBUG TEMPORÁRIO
+            // Console.WriteLine($"Agora Brasília: {agoraBrasilia}");
+            // Console.WriteLine($"Primeiro slot: {slotAtual}");
+            // Console.WriteLine($"Data recebida: {data}");
 
             while (slotAtual.AddMinutes(servico.DuracaoMinuto) <= fim)
             {

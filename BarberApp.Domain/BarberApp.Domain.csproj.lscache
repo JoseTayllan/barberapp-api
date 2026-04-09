@@ -62,15 +62,18 @@ Entities/
  Barbeiro.cs
  BaseEntity.cs
  Cliente.cs
+ DisponibilidadeBarbeiro.cs
  Pagamento.cs
  Servico.cs
 Enums/
+ DiaSemana.cs
  StatusAgendamento.cs
  StatusPagemento.cs
 Interfaces/
  IAgendamentoRepository.cs
  IBarbeiroRepository.cs
  IClienteRepository.cs
+ IDisponibilidadeRepository.cs
  IPagamentoRepository.cs
  IPaymentService.cs
  IServicoRepository.cs

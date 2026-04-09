@@ -71,6 +71,7 @@ Services/
  AgendamentoService.cs
  BarbeiroService.cs
  ClienteService.cs
+ DisponibilidadeService.cs
  PagamentoService.cs
  ServicoService.cs
  TokenService.cs
