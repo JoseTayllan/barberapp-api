@@ -29,5 +29,32 @@ namespace BarberApp.Application.Validators
                 .NotEmpty().WithMessage("Telefone é obrigatório.")
                 .Matches(@"^\d+$").WithMessage("Telefone deve conter apenas números.");
         }
+        public class AtualizarPerfilValidator : AbstractValidator<AtualizarPerfilRequest>
+        {
+            public AtualizarPerfilValidator()
+            {
+                RuleFor(x => x.NomeCompleto)
+                    .NotEmpty().WithMessage("Nome completo é obrigatório.")
+                    .MaximumLength(100).WithMessage("Nome deve ter no máximo 100 caracteres.");
+
+                RuleFor(x => x.Telefone)
+                    .NotEmpty().WithMessage("Telefone é obrigatório.")
+                    .Matches(@"^\d+$").WithMessage("Telefone deve conter apenas números.");
+            }
+        }
+
+        public class AlterarSenhaValidator : AbstractValidator<AlterarSenhaRequest>
+        {
+            public AlterarSenhaValidator()
+            {
+                RuleFor(x => x.SenhaAtual)
+                    .NotEmpty().WithMessage("Senha atual é obrigatória.");
+
+                RuleFor(x => x.NovaSenha)
+                    .NotEmpty().WithMessage("Nova senha é obrigatória.")
+                    .MinimumLength(6).WithMessage("Nova senha deve ter no mínimo 6 caracteres.")
+                    .NotEqual(x => x.SenhaAtual).WithMessage("Nova senha deve ser diferente da atual.");
+            }
+        }
     }
 }

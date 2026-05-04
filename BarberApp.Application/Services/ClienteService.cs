@@ -27,4 +27,13 @@ public class ClienteService
         await _repository.ObterPorIdAsync(id);
     public async Task<Cliente?> ObterPorEmailAsync(string email) =>
     await _repository.ObterPorEmailAsync(email);
+
+    public async Task AtualizarAsync(string email, string nome, string telefone)
+    {
+        var cliente = await _repository.ObterPorEmailAsync(email)
+            ?? throw new Exception("Cliente não encontrado.");
+
+        cliente.AtualizarPerfil(nome, telefone);
+        await _repository.AtualizarAsync(cliente);
+    }
 }

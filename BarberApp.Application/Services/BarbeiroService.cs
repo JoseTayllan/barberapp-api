@@ -38,5 +38,14 @@ namespace BarberApp.Application.Services
             barbeiro.Desativar();
             await _repository.AtualizarAsync(barbeiro);
         }
+
+        public async Task AtualizarNomeAsync(Guid barbeiroId, string nome, string telefone)
+        {
+            var barbeiro = await _repository.ObterPorIdAsync(barbeiroId)
+                ?? throw new Exception("Barbeiro não encontrado.");
+
+            barbeiro.Atualizar(nome, telefone, barbeiro.Foto);
+            await _repository.AtualizarAsync(barbeiro);
+        }
     }
 }

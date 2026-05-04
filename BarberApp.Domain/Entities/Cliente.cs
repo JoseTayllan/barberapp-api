@@ -20,5 +20,12 @@ namespace BarberApp.Domain.Entities
             Email = email;
             Telefone = telefone;
         }
+
+        public void AtualizarPerfil(string nome, string telefone)
+        {
+            Nome = nome;
+            Telefone = telefone;
+            AtualizadoEm = DateTime.UtcNow;
+        }
     }
 }
