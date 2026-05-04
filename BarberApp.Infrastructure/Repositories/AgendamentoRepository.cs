@@ -19,13 +19,14 @@ namespace BarberApp.Infrastructure.Repositories
             _context = context;
         }
 
-        public async Task<IEnumerable<Agendamento>> ObterTodosAsync() =>
-            await _context.Agendamentos
-                .Include(a => a.Cliente)
-                .Include(a => a.Barbeiro)
-                .Include(a => a.Servico)
-                .OrderBy(a => a.DataHora)
-                .ToListAsync();
+        public async Task<IEnumerable<Agendamento>> ObterPorBarbeiroAsync(Guid barbeiroId) =>
+      await _context.Agendamentos
+          .Include(a => a.Cliente)
+          .Include(a => a.Barbeiro)
+          .Include(a => a.Servico)
+          .Where(a => a.BarbeiroId == barbeiroId)
+          .OrderBy(a => a.DataHora)
+          .ToListAsync();
 
         public async Task<Agendamento?> ObterPorIdAsync(Guid id) =>
             await _context.Agendamentos
@@ -61,6 +62,14 @@ namespace BarberApp.Infrastructure.Repositories
            .Include(a => a.Barbeiro)
            .Include(a => a.Servico)
            .Where(a => a.ClienteId == clienteId)
+           .OrderBy(a => a.DataHora)
+           .ToListAsync();
+
+        public async Task<IEnumerable<Agendamento>> ObterTodosAsync() =>
+        await _context.Agendamentos
+           .Include(a => a.Cliente)
+           .Include(a => a.Barbeiro)
+           .Include(a => a.Servico)
            .OrderBy(a => a.DataHora)
            .ToListAsync();
     }

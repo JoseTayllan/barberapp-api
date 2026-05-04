@@ -16,6 +16,7 @@ namespace BarberApp.Domain.Interfaces
         Task AtualizarAsync(Agendamento agendamento);
 
         Task<IEnumerable<Agendamento>> ObterPorClienteAsync(Guid clienteId);
+        Task<IEnumerable<Agendamento>> ObterPorBarbeiroAsync(Guid barbeiroId);
 
     }
 }

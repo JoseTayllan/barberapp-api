@@ -100,7 +100,7 @@ http://localhost:5087/swagger
 ```
 
 > Na primeira inicialização, o sistema cria automaticamente as roles `Admin` e `Cliente`, além de um usuário administrador padrão:
-> - **Email:** admin@barberapp.com
+> - **Email:**  
 > - **Senha:** Admin@123
 
 ---

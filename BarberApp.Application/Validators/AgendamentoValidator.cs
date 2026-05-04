@@ -9,7 +9,7 @@ namespace BarberApp.Application.Validators
 {
     public class CriarAgendamentoValidator : AbstractValidator<CriarAgendamentoRequest>
 {
-    public CriarAgendamentoValidator()
+     public CriarAgendamentoValidator()
     {
         RuleFor(x => x.BarbeiroId)
             .NotEmpty().WithMessage("Barbeiro é obrigatório.");
@@ -18,7 +18,13 @@ namespace BarberApp.Application.Validators
             .NotEmpty().WithMessage("Serviço é obrigatório.");
 
         RuleFor(x => x.DataHora)
-            .GreaterThan(DateTime.UtcNow).WithMessage("A data do agendamento deve ser futura.");
+            .Must(data =>
+            {
+                var fuso = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+                var agoraBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fuso);
+                return data > agoraBrasilia;
+            })
+            .WithMessage("A data do agendamento deve ser futura.");
     }
 }
 }

@@ -25,17 +25,22 @@ public class AgendamentosController : ControllerBase
     [Authorize]
     public async Task<IActionResult> Listar()
     {
-        var isAdmin = User.IsInRole("Admin");
-
         IEnumerable<Agendamento> agendamentos;
 
-        if (isAdmin)
+        if (User.IsInRole("Admin"))
         {
             agendamentos = await _service.ListarTodosAsync();
         }
+        else if (User.IsInRole("Barbeiro"))
+        {
+            var barbeiroIdStr = User.FindFirstValue("BarbeiroId");
+            if (barbeiroIdStr is null)
+                return BadRequest(new { mensagem = "Barbeiro não vinculado ao usuário." });
+
+            agendamentos = await _service.ListarPorBarbeiroAsync(Guid.Parse(barbeiroIdStr));
+        }
         else
         {
-            // Cliente só vê os próprios agendamentos
             var emailCliente = User.FindFirstValue(ClaimTypes.Email)!;
             var cliente = await _clienteService.ObterPorEmailAsync(emailCliente);
 

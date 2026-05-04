@@ -28,4 +28,18 @@ namespace BarberApp.Application.DTOs
         string HorarioInicio,
         string HorarioFim,
         bool Ativo);
+    public record CriarBarbeiroComLoginRequest(
+        string NomeCompleto,
+        string Email,
+        string Telefone,
+        string Senha,
+        string? Foto
+    );
+    public record BarberiroComLoginRespnse(
+        Guid BarbeiroId,
+        string UserId,
+        string Nome,
+        string Email,
+        string Telefone
+    );
 }

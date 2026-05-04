@@ -28,5 +28,15 @@ namespace BarberApp.Application.Services
 
         public async Task<Barbeiro?> ObterPorIdAsync(Guid id) =>
             await _repository.ObterPorIdAsync(id);
+
+        public async Task DesativarAsync(Guid id)
+        {
+            var barbeiro = await _repository.ObterPorIdAsync(id);
+            if (barbeiro is null)
+                throw new Exception("Barbeiro não encontrado.");
+
+            barbeiro.Desativar();
+            await _repository.AtualizarAsync(barbeiro);
+        }
     }
 }

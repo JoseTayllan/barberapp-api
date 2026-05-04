@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using BarberApp.Application.DTOs;
 using BarberApp.Application.Services;
@@ -36,9 +37,21 @@ namespace BarberApp.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Criar(Guid barbeiroId,[FromBody] CriarDisponibilidadeRequest request)
+        [Authorize(Roles = "Admin,Barbeiro")]
+        public async Task<IActionResult> Criar(Guid barbeiroId, [FromBody] CriarDisponibilidadeRequest request)
         {
+            // Barbeiro só pode gerenciar a própria agenda
+            if (User.IsInRole("Barbeiro"))
+            {
+                var userBarbeiroIdStr = User.FindFirstValue("BarbeiroId");
+
+                if (userBarbeiroIdStr is null || !Guid.TryParse(userBarbeiroIdStr, out var userBarbeiroId))
+                    return BadRequest(new { mensagem = "BarbeiroId inválido no token." });
+
+                if (userBarbeiroId != barbeiroId)
+                    return Forbid();
+            }
+
             try
             {
                 var disponibilidade = await _service.CriarAsync(
@@ -46,17 +59,41 @@ namespace BarberApp.API.Controllers
                     request.DiaSemana,
                     request.HorarioInicio,
                     request.HorarioFim);
+
                 return CreatedAtAction(nameof(Listar), new { barbeiroId },
-                new DisponibildadeResponse(
-                    disponibilidade.Id,
-                    disponibilidade.DiaSemana.ToString(),
-                    disponibilidade.HoraInicio.ToString(@"hh\:mm"),
-                    disponibilidade.HoraFim.ToString(@"hh\:mm"),
-                    disponibilidade.Ativo));
-            }catch(Exception ex)
+                    new DisponibildadeResponse(
+                        disponibilidade.Id,
+                        disponibilidade.DiaSemana.ToString(),
+                        disponibilidade.HoraInicio.ToString(@"hh\:mm"),
+                        disponibilidade.HoraFim.ToString(@"hh\:mm"),
+                        disponibilidade.Ativo));
+            }
+            catch (Exception ex)
             {
                 return BadRequest(new { mensagem = ex.Message });
             }
+            // [Authorize(Roles = "Admin")]
+            // public async Task<IActionResult> Criar(Guid barbeiroId,[FromBody] CriarDisponibilidadeRequest request)
+            // {
+            //     try
+            //     {
+            //         var disponibilidade = await _service.CriarAsync(
+            //             barbeiroId,
+            //             request.DiaSemana,
+            //             request.HorarioInicio,
+            //             request.HorarioFim);
+            //         return CreatedAtAction(nameof(Listar), new { barbeiroId },
+            //         new DisponibildadeResponse(
+            //             disponibilidade.Id,
+            //             disponibilidade.DiaSemana.ToString(),
+            //             disponibilidade.HoraInicio.ToString(@"hh\:mm"),
+            //             disponibilidade.HoraFim.ToString(@"hh\:mm"),
+            //             disponibilidade.Ativo));
+            //     }catch(Exception ex)
+            //     {
+            //         return BadRequest(new { mensagem = ex.Message });
+            //     }
+            // }
         }
     }
 }

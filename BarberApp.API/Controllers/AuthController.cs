@@ -44,10 +44,10 @@ public class AuthController : ControllerBase
         await _userManager.AddToRoleAsync(user, "Cliente");
 
         // Cria o perfil de cliente automaticamente
-        await _clienteService.CriarAsync(request.NomeCompleto, request.Email, request.Telefone);
+        await _clienteService.CriarAsync(request.NomeCompleto, request.Email, request.Telefone );
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = _tokenService.GerarToken(user.Id, user.Email!, user.NomeCompleto, roles);
+        var token = _tokenService.GerarToken(user.Id, user.Email!, user.NomeCompleto, roles, user.BarbeiroId);
 
         return Ok(new AuthResponse(
             token,
@@ -72,7 +72,7 @@ public class AuthController : ControllerBase
             return Unauthorized(new { mensagem = "E-mail ou senha inválidos." });
 
         var roles = await _userManager.GetRolesAsync(user);
-        var token = _tokenService.GerarToken(user.Id, user.Email!, user.NomeCompleto, roles);
+        var token = _tokenService.GerarToken(user.Id, user.Email!, user.NomeCompleto, roles, user.BarbeiroId);
 
         return Ok(new AuthResponse(token, user.NomeCompleto, user.Email!, roles, DateTime.UtcNow.AddHours(8)));
     }

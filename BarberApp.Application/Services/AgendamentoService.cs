@@ -36,7 +36,6 @@ namespace BarberApp.Application.Services
 
         public async Task<Agendamento> CriarAsync(string emailCliente, Guid barbeiroId, Guid servicoId, DateTime dataHora, string? observacao)
         {
-            // Resolve o cliente pelo email do token
             var cliente = await _clienteRepo.ObterPorEmailAsync(emailCliente)
                 ?? throw new Exception("Perfil de cliente não encontrado.");
 
@@ -46,6 +45,20 @@ namespace BarberApp.Application.Services
             var servico = await _servicoRepo.ObterPorIdAsync(servicoId)
                 ?? throw new Exception("Serviço não encontrado.");
 
+            // Verifica se o barbeiro atende naquele dia da semana
+            var diaSemana = (Domain.Enums.DiaSemana)dataHora.DayOfWeek;
+            var agenda = await _disponibilidadeService.ObterPorDiaAsync(barbeiroId, diaSemana);
+
+            if (agenda is null)
+                throw new Exception($"O barbeiro não atende neste dia da semana.");
+
+            // Verifica se o horário está dentro do expediente do barbeiro
+            var horarioAgendamento = dataHora.TimeOfDay;
+            if (horarioAgendamento < agenda.HoraInicio ||
+                horarioAgendamento.Add(TimeSpan.FromMinutes(servico.DuracaoMinuto)) > agenda.HoraFim)
+                throw new Exception($"Horário fora do expediente do barbeiro. Atendimento das {agenda.HoraInicio:hh\\:mm} às {agenda.HoraFim:hh\\:mm}.");
+
+            // Verifica conflito de horário
             var agendamentosDoDia = await _agendamentoRepo
                 .ObterPorBarbeiroEDataAsync(barbeiroId, dataHora);
 
@@ -158,5 +171,8 @@ namespace BarberApp.Application.Services
 
             return slots;
         }
+
+        public async Task<IEnumerable<Agendamento>> ListarPorBarbeiroAsync(Guid barbeiroId) =>
+               await _agendamentoRepo.ObterPorBarbeiroAsync(barbeiroId);
     }
 }
