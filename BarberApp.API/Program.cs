@@ -31,6 +31,18 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
+// CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 // JWT
 var secretKey = builder.Configuration["JwtSettings:SecretKey"]!;
 builder.Services.AddAuthentication(options =>
@@ -64,7 +76,6 @@ builder.Services.AddScoped<IDisponibilidadeRepository, DisponibilidadeRepository
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<BarberApp.Application.Validators.CriarBarbeiroValidator>();
 
-
 // Services
 builder.Services.AddScoped<BarbeiroService>();
 builder.Services.AddScoped<ServicoService>();
@@ -77,18 +88,18 @@ builder.Services.AddScoped<DisponibilidadeService>();
 
 builder.Services.AddControllers()
 .ConfigureApiBehaviorOptions(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
     {
-        options.InvalidModelStateResponseFactory = context =>
-        {
-            var erros = context.ModelState
-                .Where(e => e.Value?.Errors.Count > 0)
-                .SelectMany(e => e.Value!.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
+        var erros = context.ModelState
+            .Where(e => e.Value?.Errors.Count > 0)
+            .SelectMany(e => e.Value!.Errors)
+            .Select(e => e.ErrorMessage)
+            .ToList();
 
-            return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new { erros });
-        };
-    });
+        return new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(new { erros });
+    };
+});
 
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddEndpointsApiExplorer();
@@ -132,7 +143,7 @@ using (var scope = app.Services.CreateScope())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
-    foreach (var role in new[] { "Admin","Barbeiro", "Cliente" })
+    foreach (var role in new[] { "Admin", "Barbeiro", "Cliente" })
     {
         if (!await roleManager.RoleExistsAsync(role))
             await roleManager.CreateAsync(new IdentityRole(role));
@@ -147,6 +158,7 @@ using (var scope = app.Services.CreateScope())
             Email = adminEmail,
             UserName = adminEmail
         };
+
         await userManager.CreateAsync(admin, "Admin@123");
         await userManager.AddToRoleAsync(admin, "Admin");
     }
@@ -159,8 +171,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("Frontend");
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
