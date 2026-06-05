@@ -15,10 +15,14 @@ namespace BarberApp.API.Controllers
     public class PagamentosController : ControllerBase
     {
         private readonly PagamentoService _Service;
+        private readonly AgendamentoService _agendamentoService;
+        private readonly ClienteService _clienteService;
 
-        public PagamentosController(PagamentoService Service)
+        public PagamentosController(PagamentoService Service, AgendamentoService agendamentoService, ClienteService clienteService)
         {
             _Service = Service;
+            _agendamentoService = agendamentoService;
+            _clienteService = clienteService;
         }
 
         [HttpPost("{agendamentoId:guid}")]
@@ -27,6 +31,20 @@ namespace BarberApp.API.Controllers
             try
             {
                 var email = User.FindFirstValue(ClaimTypes.Email)!;
+                // Valida se o agendamento pertence ao cliente logado
+                if (User.IsInRole("Cliente"))
+                {
+                    var agendamento = await _agendamentoService.ObterPorIdAsync(agendamentoId);
+
+                    if (agendamento is null)
+                        return NotFound(new { mensagem = "Agendamento não encontrado." });
+
+                    var cliente = await _clienteService.ObterPorEmailAsync(email);
+
+                    if (agendamento.ClienteId != cliente!.Id)
+                        return Forbid();
+                }
+                
                 var pagamento = await _Service.ProcessarAsync(agendamentoId, email);
 
                 return Ok(new

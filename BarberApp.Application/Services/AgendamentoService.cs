@@ -45,31 +45,37 @@ namespace BarberApp.Application.Services
             var servico = await _servicoRepo.ObterPorIdAsync(servicoId)
                 ?? throw new Exception("Serviço não encontrado.");
 
+            var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
+            var dataHoraBrasilia = DateTime.SpecifyKind(dataHora, DateTimeKind.Unspecified);
+
             // Verifica se o barbeiro atende naquele dia da semana
-            var diaSemana = (Domain.Enums.DiaSemana)dataHora.DayOfWeek;
+            var diaSemana = (Domain.Enums.DiaSemana)dataHoraBrasilia.DayOfWeek;
             var agenda = await _disponibilidadeService.ObterPorDiaAsync(barbeiroId, diaSemana);
 
             if (agenda is null)
                 throw new Exception($"O barbeiro não atende neste dia da semana.");
 
             // Verifica se o horário está dentro do expediente do barbeiro
-            var horarioAgendamento = dataHora.TimeOfDay;
+            var horarioAgendamento = dataHoraBrasilia.TimeOfDay;
             if (horarioAgendamento < agenda.HoraInicio ||
                 horarioAgendamento.Add(TimeSpan.FromMinutes(servico.DuracaoMinuto)) > agenda.HoraFim)
                 throw new Exception($"Horário fora do expediente do barbeiro. Atendimento das {agenda.HoraInicio:hh\\:mm} às {agenda.HoraFim:hh\\:mm}.");
 
+            // Horarios chegam no fuso da barbearia; o banco usa timestamp UTC.
+            var dataHoraUtc = TimeZoneInfo.ConvertTimeToUtc(dataHoraBrasilia, fusoHorario);
+
             // Verifica conflito de horário
             var agendamentosDoDia = await _agendamentoRepo
-                .ObterPorBarbeiroEDataAsync(barbeiroId, dataHora);
+                .ObterPorBarbeiroEDataAsync(barbeiroId, dataHoraUtc);
 
             var conflito = agendamentosDoDia.Any(a =>
-                a.DataHora < dataHora.AddMinutes(servico.DuracaoMinuto) &&
-                dataHora < a.DataHora.AddMinutes(servico.DuracaoMinuto));
+                a.DataHora < dataHoraUtc.AddMinutes(servico.DuracaoMinuto) &&
+                dataHoraUtc < a.DataHora.AddMinutes(servico.DuracaoMinuto));
 
             if (conflito)
                 throw new Exception("Já existe um agendamento neste horário para este barbeiro.");
 
-            var agendamento = new Agendamento(cliente.Id, barbeiroId, servicoId, dataHora, observacao);
+            var agendamento = new Agendamento(cliente.Id, barbeiroId, servicoId, dataHoraUtc, observacao);
             await _agendamentoRepo.AdicionarAsync(agendamento);
             return agendamento;
         }

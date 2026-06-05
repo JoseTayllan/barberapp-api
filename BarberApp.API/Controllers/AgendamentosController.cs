@@ -66,10 +66,29 @@ public class AgendamentosController : ControllerBase
     [Authorize]
     public async Task<IActionResult> ObterPorId(Guid id)
     {
+        //! a = Agendamento
         var a = await _service.ObterPorIdAsync(id);
 
         if (a is null)
             return NotFound(new { mensagem = "Agendamento não encontrado." });
+
+        // Cliente só pode ver o próprio agendamento
+        if (User.IsInRole("Cliente"))
+        {
+            var email = User.FindFirstValue(ClaimTypes.Email)!;
+            var cliente = await _clienteService.ObterPorEmailAsync(email);
+
+            if (a.ClienteId != cliente?.Id)
+                return Forbid();
+        }
+        // Barbeiro só pode ver agendamentos onde ele é o barbeiro
+        if (User.IsInRole("Barbeiro"))
+        {
+            var barbeiroIdStr = User.FindFirstValue("BarbeiroId");
+
+            if (barbeiroIdStr is null || a.BarbeiroId.ToString() != barbeiroIdStr)
+                return Forbid();
+        }
 
         return Ok(new AgendamentoResponse(
             a.Id,
@@ -126,6 +145,20 @@ public class AgendamentosController : ControllerBase
     {
         try
         {
+            var agendamento = await _service.ObterPorIdAsync(id);
+
+            if (agendamento is null)
+                return NotFound(new { mensagem = "Agendamento não encontrado." });
+
+            // Cliente só pode cancelar o próprio agendamento
+            if (User.IsInRole("Cliente"))
+            {
+                var email = User.FindFirstValue(ClaimTypes.Email)!;
+                var cliente = await _clienteService.ObterPorEmailAsync(email);
+
+                if (agendamento.ClienteId != cliente?.Id)
+                    return Forbid();
+            }
             await _service.CancelarAsync(id);
             return NoContent();
         }
