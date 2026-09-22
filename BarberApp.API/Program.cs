@@ -72,6 +72,7 @@ builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IPagamentoRepository, PagamentoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IDisponibilidadeRepository, DisponibilidadeRepository>();
+builder.Services.AddScoped<IExcecaoAgendaRepository, ExcecaoAgendaRepository>();
 
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<BarberApp.Application.Validators.CriarBarbeiroValidator>();
@@ -85,6 +86,7 @@ builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<PagamentoService>();
 builder.Services.AddScoped<IPaymentService, MockPaymentService>();
 builder.Services.AddScoped<DisponibilidadeService>();
+builder.Services.AddScoped<ExcecaoAgendaService>();                                                                                                                                                                                                                 
 
 builder.Services.AddControllers()
 .ConfigureApiBehaviorOptions(options =>

@@ -21,6 +21,7 @@ namespace BarberApp.Infrastructure.Data
         public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
         public DbSet<DisponibilidadeBarbeiro> DisponibilidadesBarbeiros => Set<DisponibilidadeBarbeiro>();
 
+        public DbSet< ExcecaoAgenda> ExcecoesAgenda => Set<ExcecaoAgenda>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder); // importante — inicializa tabelas do Identity
@@ -100,6 +101,22 @@ namespace BarberApp.Infrastructure.Data
                 // Garante que cada Barbeiro Tem só uma entreda por dia
                 e.HasIndex(d => new { d.BarbeiroId, d.DiaSemana }).IsUnique();
             });
+
+            modelBuilder.Entity<ExcecaoAgenda>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.HasOne(x => x.Barbeiro)
+                 .WithMany()
+                 .HasForeignKey(x => x.BarbeiroId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.Property(x => x.Data).HasColumnType("date");
+
+                // Uma exeção por barbeiro por data
+                e.HasIndex(x => new { x.BarbeiroId, x.Data }).IsUnique();
+            });
+
         }
 
     }

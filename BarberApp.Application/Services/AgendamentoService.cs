@@ -6,7 +6,7 @@ using BarberApp.Application.DTOs;
 using BarberApp.Domain.Entities;
 using BarberApp.Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
-using Microsoft.VisualBasic;
+
 namespace BarberApp.Application.Services
 {
     public class AgendamentoService
@@ -17,6 +17,7 @@ namespace BarberApp.Application.Services
         private readonly IClienteRepository _clienteRepo;
         private readonly IConfiguration _configuration;
         private readonly DisponibilidadeService _disponibilidadeService;
+        private readonly ExcecaoAgendaService _execaoService;
 
         public AgendamentoService(
             IAgendamentoRepository agendamentoRepo,
@@ -24,7 +25,8 @@ namespace BarberApp.Application.Services
             IServicoRepository servicoRepo,
             IClienteRepository clienteRepo,
             IConfiguration configuration,
-            DisponibilidadeService disponibilidadeService)
+            DisponibilidadeService disponibilidadeService,
+            ExcecaoAgendaService execaoService)
         {
             _agendamentoRepo = agendamentoRepo;
             _barbeiroRepo = barbeiroRepo;
@@ -32,9 +34,15 @@ namespace BarberApp.Application.Services
             _clienteRepo = clienteRepo;
             _configuration = configuration;
             _disponibilidadeService = disponibilidadeService;
+            _execaoService = execaoService;
         }
 
-        public async Task<Agendamento> CriarAsync(string emailCliente, Guid barbeiroId, Guid servicoId, DateTime dataHora, string? observacao)
+        public async Task<Agendamento> CriarAsync(
+            string emailCliente,
+            Guid barbeiroId,
+            Guid servicoId,
+            DateTime dataHora,
+            string? observacao)
         {
             var cliente = await _clienteRepo.ObterPorEmailAsync(emailCliente)
                 ?? throw new Exception("Perfil de cliente não encontrado.");
@@ -45,38 +53,96 @@ namespace BarberApp.Application.Services
             var servico = await _servicoRepo.ObterPorIdAsync(servicoId)
                 ?? throw new Exception("Serviço não encontrado.");
 
-            var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-            var dataHoraBrasilia = DateTime.SpecifyKind(dataHora, DateTimeKind.Unspecified);
+            var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById(
+                "E. South America Standard Time");
 
-            // Verifica se o barbeiro atende naquele dia da semana
-            var diaSemana = (Domain.Enums.DiaSemana)dataHoraBrasilia.DayOfWeek;
-            var agenda = await _disponibilidadeService.ObterPorDiaAsync(barbeiroId, diaSemana);
+            var dataHoraBrasilia = DateTime.SpecifyKind(
+                dataHora,
+                DateTimeKind.Unspecified);
 
-            if (agenda is null)
-                throw new Exception($"O barbeiro não atende neste dia da semana.");
+            
+    // Exceções têm prioridade sobre a agenda semanal.
+    var dataUtc = DateTime.SpecifyKind(
+        dataHoraBrasilia.Date,
+        DateTimeKind.Utc);
 
-            // Verifica se o horário está dentro do expediente do barbeiro
-            var horarioAgendamento = dataHoraBrasilia.TimeOfDay;
-            if (horarioAgendamento < agenda.HoraInicio ||
-                horarioAgendamento.Add(TimeSpan.FromMinutes(servico.DuracaoMinuto)) > agenda.HoraFim)
-                throw new Exception($"Horário fora do expediente do barbeiro. Atendimento das {agenda.HoraInicio:hh\\:mm} às {agenda.HoraFim:hh\\:mm}.");
+    var excecao = await _execaoService.ObterPorDataAsync(
+        barbeiroId,
+        dataUtc);
 
-            // Horarios chegam no fuso da barbearia; o banco usa timestamp UTC.
-            var dataHoraUtc = TimeZoneInfo.ConvertTimeToUtc(dataHoraBrasilia, fusoHorario);
+    if (excecao is not null && excecao.NaoAtende)
+        throw new Exception(
+            "O barbeiro não atende neste dia.");
 
-            // Verifica conflito de horário
+    TimeSpan horaInicio;
+    TimeSpan horaFim;
+
+    if (excecao is not null && !excecao.NaoAtende)
+    {
+        horaInicio = excecao.HoraInicio!.Value;
+        horaFim = excecao.HoraFim!.Value;
+    }
+    else
+    {
+        var diaSemana =
+            (Domain.Enums.DiaSemana)dataHoraBrasilia.DayOfWeek;
+
+        var agenda =
+            await _disponibilidadeService.ObterPorDiaAsync(
+                barbeiroId,
+                diaSemana);
+
+        if (agenda is null)
+            throw new Exception(
+                "O barbeiro não atende neste dia da semana.");
+
+        horaInicio = agenda.HoraInicio;
+        horaFim = agenda.HoraFim;
+    }
+
+    var horarioAgendamento = dataHoraBrasilia.TimeOfDay;
+
+    if (horarioAgendamento < horaInicio ||
+        horarioAgendamento.Add(
+            TimeSpan.FromMinutes(servico.DuracaoMinuto)) > horaFim)
+    {
+        throw new Exception(
+            $"Horário fora do expediente. " +
+            $"Atendimento das {horaInicio:hh\\:mm} " +
+            $"às {horaFim:hh\\:mm}.");
+    }
+
+           
+
+            // O banco armazena as datas em UTC.
+            var dataHoraUtc = TimeZoneInfo.ConvertTimeToUtc(
+                dataHoraBrasilia,
+                fusoHorario);
+
             var agendamentosDoDia = await _agendamentoRepo
-                .ObterPorBarbeiroEDataAsync(barbeiroId, dataHoraUtc);
+                .ObterPorBarbeiroEDataAsync(
+                    barbeiroId,
+                    dataHoraUtc);
 
             var conflito = agendamentosDoDia.Any(a =>
-                a.DataHora < dataHoraUtc.AddMinutes(servico.DuracaoMinuto) &&
-                dataHoraUtc < a.DataHora.AddMinutes(servico.DuracaoMinuto));
+                a.DataHora < dataHoraUtc.AddMinutes(
+                    servico.DuracaoMinuto) &&
+                dataHoraUtc < a.DataHora.AddMinutes(
+                    servico.DuracaoMinuto));
 
             if (conflito)
-                throw new Exception("Já existe um agendamento neste horário para este barbeiro.");
+                throw new Exception(
+                    "Já existe um agendamento neste horário para este barbeiro.");
 
-            var agendamento = new Agendamento(cliente.Id, barbeiroId, servicoId, dataHoraUtc, observacao);
+            var agendamento = new Agendamento(
+                cliente.Id,
+                barbeiroId,
+                servicoId,
+                dataHoraUtc,
+                observacao);
+
             await _agendamentoRepo.AdicionarAsync(agendamento);
+
             return agendamento;
         }
 
@@ -92,6 +158,7 @@ namespace BarberApp.Application.Services
                 ?? throw new Exception("Agendamento não encontrado.");
 
             agendamento.Confirmar();
+
             await _agendamentoRepo.AtualizarAsync(agendamento);
         }
 
@@ -101,27 +168,60 @@ namespace BarberApp.Application.Services
                 ?? throw new Exception("Agendamento não encontrado.");
 
             agendamento.Cancelar();
+
             await _agendamentoRepo.AtualizarAsync(agendamento);
         }
 
-        public async Task<IEnumerable<Agendamento>> ListarPorClienteAsync(Guid clienteId) =>
+        public async Task<IEnumerable<Agendamento>> ListarPorClienteAsync(
+            Guid clienteId) =>
             await _agendamentoRepo.ObterPorClienteAsync(clienteId);
 
-        public async Task<IEnumerable<HorarioDisponivelResponse>> ObterHorariosDisponiveisAsync(
-     Guid barbeiroId, Guid servicoId, DateTime data)
+        public async Task<IEnumerable<HorarioDisponivelResponse>>
+            ObterHorariosDisponiveisAsync(
+                Guid barbeiroId,
+                Guid servicoId,
+                DateTime data)
         {
-            // Fuso horário de Brasília
-            var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-            var agoraBrasilia = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, fusoHorario);
+            var fusoHorario = TimeZoneInfo.FindSystemTimeZoneById(
+                "E. South America Standard Time");
 
-            var diaSemana = (Domain.Enums.DiaSemana)data.DayOfWeek;
-            var agenda = await _disponibilidadeService.ObterPorDiaAsync(barbeiroId, diaSemana);
+            var agoraBrasilia = TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.UtcNow,
+                fusoHorario);
 
-            if (agenda is null)
-                throw new Exception($"O barbeiro não atende neste dia da semana.");
+            var dataUtc = DateTime.SpecifyKind(
+                data.Date,
+                DateTimeKind.Utc);
 
-            var abertura = agenda.HoraInicio;
-            var fechamento = agenda.HoraFim;
+            // Exceções têm prioridade sobre a agenda semanal.
+            var excecao = await _execaoService.ObterPorDataAsync(
+                barbeiroId,
+                dataUtc);
+
+            if (excecao is not null && excecao.NaoAtende)
+                throw new Exception(
+                    "O barbeiro não atende neste dia.");
+
+            TimeSpan abertura;
+            TimeSpan fechamento;
+
+            if (excecao is not null && !excecao.NaoAtende)
+            {
+                abertura = excecao.HoraInicio!.Value;
+                fechamento = excecao.HoraFim!.Value;
+            }
+            else
+            {
+                var diaSemana = (Domain.Enums.DiaSemana)data.DayOfWeek;
+                var agenda =await _disponibilidadeService.ObterPorDiaAsync(barbeiroId, diaSemana);
+
+                if (agenda is null)
+                    throw new Exception(
+                        "O barbeiro não atende neste dia da semana.");
+
+                abertura = agenda.HoraInicio;
+                fechamento = agenda.HoraFim;
+            }
 
             var barbeiro = await _barbeiroRepo.ObterPorIdAsync(barbeiroId)
                 ?? throw new Exception("Barbeiro não encontrado.");
@@ -129,56 +229,62 @@ namespace BarberApp.Application.Services
             var servico = await _servicoRepo.ObterPorIdAsync(servicoId)
                 ?? throw new Exception("Serviço não encontrado.");
 
-            // Busca agendamentos usando UTC
-            var dataUtc = DateTime.SpecifyKind(data.Date, DateTimeKind.Utc);
-            var agendamentosDoDia = await _agendamentoRepo
-                .ObterPorBarbeiroEDataAsync(barbeiroId, dataUtc);
+            var agendamentosDoDia =
+                await _agendamentoRepo.ObterPorBarbeiroEDataAsync(
+                    barbeiroId,
+                    dataUtc);
 
             var agendamentosAtivos = agendamentosDoDia
-                .Where(a => a.Status == Domain.Enums.StatusAgendamento.Pendente ||
-                            a.Status == Domain.Enums.StatusAgendamento.Confirmado)
+                .Where(a =>
+                    a.Status == Domain.Enums.StatusAgendamento.Pendente ||
+                    a.Status == Domain.Enums.StatusAgendamento.Confirmado)
                 .ToList();
 
             var slots = new List<HorarioDisponivelResponse>();
 
-            // Gera slots no horário de Brasília
             var slotAtual = data.Date.Add(abertura);
             var fim = data.Date.Add(fechamento);
 
-            // DEBUG TEMPORÁRIO
-            // Console.WriteLine($"Agora Brasília: {agoraBrasilia}");
-            // Console.WriteLine($"Primeiro slot: {slotAtual}");
-            // Console.WriteLine($"Data recebida: {data}");
-
             while (slotAtual.AddMinutes(servico.DuracaoMinuto) <= fim)
             {
-                // Converte o slot para UTC para comparar com os agendamentos do banco
+                // A comparação com os agendamentos é feita em UTC.
                 var slotUtc = TimeZoneInfo.ConvertTimeToUtc(
-                    DateTime.SpecifyKind(slotAtual, DateTimeKind.Unspecified), fusoHorario);
+                    DateTime.SpecifyKind(
+                        slotAtual,
+                        DateTimeKind.Unspecified),
+                    fusoHorario);
 
                 var ocupado = agendamentosAtivos.Any(a =>
                 {
                     var inicioAgendamento = a.DataHora;
-                    var fimAgendamento = a.DataHora.AddMinutes(servico.DuracaoMinuto);
-                    var fimSlotUtc = slotUtc.AddMinutes(servico.DuracaoMinuto);
-                    return slotUtc < fimAgendamento && fimSlotUtc > inicioAgendamento;
+                    var fimAgendamento = a.DataHora.AddMinutes(
+                        servico.DuracaoMinuto);
+
+                    var fimSlotUtc = slotUtc.AddMinutes(
+                        servico.DuracaoMinuto);
+
+                    return slotUtc < fimAgendamento &&
+                           fimSlotUtc > inicioAgendamento;
                 });
 
-                // Compara com horário atual de Brasília
-                var disponivel = !ocupado && slotAtual > agoraBrasilia;
+                var disponivel =
+                    !ocupado &&
+                    slotAtual > agoraBrasilia;
 
-                slots.Add(new HorarioDisponivelResponse(
-                    slotAtual.ToString("HH:mm"),
-                    disponivel
-                ));
+                slots.Add(
+                    new HorarioDisponivelResponse(
+                        slotAtual.ToString("HH:mm"),
+                        disponivel));
 
-                slotAtual = slotAtual.AddMinutes(servico.DuracaoMinuto);
+                slotAtual = slotAtual.AddMinutes(
+                    servico.DuracaoMinuto);
             }
 
             return slots;
         }
 
-        public async Task<IEnumerable<Agendamento>> ListarPorBarbeiroAsync(Guid barbeiroId) =>
-               await _agendamentoRepo.ObterPorBarbeiroAsync(barbeiroId);
+        public async Task<IEnumerable<Agendamento>>
+            ListarPorBarbeiroAsync(Guid barbeiroId) =>
+            await _agendamentoRepo.ObterPorBarbeiroAsync(barbeiroId);
     }
 }

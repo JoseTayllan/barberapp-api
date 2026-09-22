@@ -42,4 +42,31 @@ namespace BarberApp.Application.DTOs
         string Email,
         string Telefone
     );
+    public record ExcecaoAgendaResponse(
+        Guid Id,
+        string Data,
+        bool NaoAtende,
+        string? HorarioInicio,
+        string? HorarioFim,
+        string? Motivo
+    );
+
+    public record CriarExcecaoAgendaRequest(
+        string Data,
+        bool NaoAtende,
+        string? HorarioInicio,
+        string? HorarioFim,
+        string? Motivo
+    );
+
+    public record AtualizarExcecaoAgendaRequest(
+        bool NaoAtende,
+        string? HorarioInicio,
+        string? HorarioFim,
+        string? Motivo
+    );
+    
 }
+
+
+
