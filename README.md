@@ -1,6 +1,6 @@
 # ✂️ BarberApp API
 
-> API REST para sistema de agendamento de barbearia — construída com .NET 10, Clean Architecture e autenticação JWT.
+> API REST para sistema de agendamento de barbearia — construída com .NET 10, arquitetura em camadas, API key global e autenticação JWT.
 
 ---
 
@@ -12,6 +12,7 @@
 | Entity Framework Core | 10 | ORM |
 | PostgreSQL | 15+ | Banco de dados |
 | ASP.NET Identity | 10 | Gestão de usuários |
+| API key | — | Autenticação global do consumidor |
 | JWT Bearer | 10 | Autenticação |
 | FluentValidation | latest | Validação de entrada |
 | Swashbuckle | 6.9 | Documentação Swagger |
@@ -42,11 +43,14 @@ BarberApp/
 │
 ├── BarberApp.API             → Camada de entrada HTTP
 │   ├── Controllers/          → Controllers REST
+│   ├── Middleware/           → Barreira global de API key
+│   ├── OpenApi/              → Requisitos ApiKey/Bearer no Swagger
 │   └── Program.cs            → Configuração e injeção de dependência
 │
-├── BarberApp.UnitTests       → Testes unitários (xUnit + Moq)
-└── BarberApp.IntegrationTests→ Testes de integração (WebApplicationFactory)
+└── BarberApp.IntegrationTests→ Testes de integração (xUnit + WebApplicationFactory)
 ```
+
+No pipeline HTTP, CORS vem antes do middleware de API key; depois dele são executadas autenticação e autorização JWT. Assim, a API key decide se o consumidor pode alcançar a aplicação, enquanto JWT, roles, claims e regras de propriedade continuam decidindo o que o usuário pode fazer.
 
 ---
 
@@ -106,11 +110,43 @@ O sistema tem três perfis de usuário:
 
 ## 🔐 Autenticação
 
-A API usa **JWT Bearer Token**.
+A API usa duas barreiras complementares:
 
-Para acessar endpoints protegidos, envie o header:
+1. **API key global:** identifica a aplicação consumidora. Todos os endpoints da API, inclusive login, registro e rotas chamadas de “públicas” nas tabelas abaixo, exigem `X-API-Key`.
+2. **JWT Bearer:** identifica o usuário e suas roles nas rotas protegidas por autenticação/autorização.
+
+A API key válida não autentica um usuário e não substitui JWT. Para um endpoint protegido, envie os dois headers:
+
 ```
+X-API-Key: {api-key-do-ambiente}
 Authorization: Bearer {token}
+```
+
+Respostas da barreira de API key:
+
+| Situação | Resposta |
+|---|---|
+| Header `X-API-Key` ausente | `401 Unauthorized` e `WWW-Authenticate: ApiKey` |
+| API key inválida, vazia ou múltipla | `403 Forbidden` |
+| API key válida | A requisição segue o fluxo normal, incluindo validação JWT quando aplicável |
+
+Em `Development`, a interface e o documento Swagger (`/swagger` e `/swagger/v1/swagger.json`) permanecem públicos para viabilizar descoberta e testes. O Swagger declara o esquema `ApiKey`: operações públicas pedem somente a API key; operações protegidas pedem API key e Bearer. O preflight CORS também é processado antes da barreira de API key.
+
+### Impacto para consumidores atuais
+
+Consumidores existentes devem passar `X-API-Key` em **todas** as chamadas. URLs, verbos, corpos, respostas de sucesso e regras JWT existentes não mudam; a única adaptação é o novo header. Por exemplo:
+
+```http
+# Endpoint público para usuário, mas protegido por API key
+GET /api/servicos HTTP/1.1
+Host: localhost:5087
+X-API-Key: {api-key-do-ambiente}
+
+# Endpoint protegido pelas duas barreiras
+GET /api/agendamentos HTTP/1.1
+Host: localhost:5087
+X-API-Key: {api-key-do-ambiente}
+Authorization: Bearer {token-jwt}
 ```
 
 O token contém os seguintes claims:
@@ -129,12 +165,14 @@ O token contém os seguintes claims:
 
 ## 📡 Endpoints completos
 
+Nas tabelas abaixo, **Público** significa “não exige JWT”; a API key global continua obrigatória.
+
 ### 🔑 Autenticação — `/api/auth`
 
 | Método | Rota | Acesso | Descrição | Body |
 |---|---|---|---|---|
 | `POST` | `/api/auth/registro` | Público | Cria conta + perfil de cliente | `{ nomeCompleto, email, telefone, password }` |
-| `POST` | `/api/auth/login` | Público | Retorna token JWT | `{ email, senha }` |
+| `POST` | `/api/auth/login` | Público | Retorna token JWT | `{ email, password }` |
 
 **Resposta do login/registro:**
 ```json
@@ -373,8 +411,8 @@ GET /api/agendamentos/horarios-disponiveis
 | `201` | Criado com sucesso |
 | `204` | Sucesso sem conteúdo |
 | `400` | Dados inválidos — ver campo `erros` ou `mensagem` |
-| `401` | Não autenticado — token ausente ou inválido |
-| `403` | Sem permissão — role insuficiente |
+| `401` | API key ausente, ou JWT ausente/inválido em endpoint protegido |
+| `403` | API key inválida, ou usuário sem permissão suficiente |
 | `404` | Recurso não encontrado |
 | `500` | Erro interno do servidor |
 
@@ -447,9 +485,20 @@ Crie `BarberApp.API/appsettings.Development.json`:
   "Barbearia": {
     "HorarioAbertura": "08:00",
     "HorarioFechamento": "18:00"
+  },
+  "ApiKey": {
+    "Value": "apenas-exemplo-local-nao-versione-uma-chave-real"
   }
 }
 ```
+
+Prefira fornecer a chave por Secret Manager, cofre do ambiente ou variável de ambiente, em vez de salvá-la em arquivo:
+
+```powershell
+$env:ApiKey__Value = "gere-uma-chave-longa-e-aleatoria"
+```
+
+`ApiKey__Value` é mapeada pelo .NET para `ApiKey:Value`. A aplicação recusa iniciar se esse valor estiver ausente, vazio ou contiver apenas espaços. Nunca versione, registre em log ou compartilhe a chave real.
 
 ### 3. Execute as migrations
 ```bash
@@ -466,6 +515,8 @@ dotnet run --project BarberApp.API
 http://localhost:5087/swagger
 ```
 
+No Swagger, use **Authorize** para informar `X-API-Key`; em operações autenticadas, informe também o Bearer token. O Swagger só é publicado no ambiente `Development`.
+
 > Na primeira inicialização o sistema cria automaticamente:
 > - Roles: `Admin`, `Barbeiro`, `Cliente`
 > - Usuário admin padrão: `admin@barberapp.com` / `Admin@123`
@@ -474,16 +525,22 @@ http://localhost:5087/swagger
 
 ## 🧪 Testes
 
-```bash
-# Todos os testes
-dotnet test
+Há um projeto real de integração, `BarberApp.IntegrationTests`, com **21 casos** xUnit. Ele sobe a API com `WebApplicationFactory`, usa um banco EF Core InMemory isolado e valida autenticação por API key, compatibilidade JWT, casos de borda e contrato Swagger/OpenAPI.
 
-# Apenas unitários
-dotnet test BarberApp.UnitTests/BarberApp.UnitTests.csproj
+```powershell
+# Toda a solução; confirme no resumo que 21 casos foram executados.
+dotnet test BarberApp.slnx --no-restore
+
+# Saída detalhada
+dotnet test BarberApp.slnx --logger "console;verbosity=normal"
 
 # Apenas integração
-dotnet test BarberApp.IntegrationTests/BarberApp.IntegrationTests.csproj
+dotnet test .\BarberApp.IntegrationTests\BarberApp.IntegrationTests.csproj --no-restore
 ```
+
+Ainda não existe projeto de testes unitários. O banco InMemory não substitui testes contra PostgreSQL para migrations e comportamentos específicos do provedor.
+
+O desenvolvimento segue TDD para tudo que for criado ou modificado: primeiro um teste falhando pelo motivo correto (RED), depois a implementação mínima (GREEN) e, por fim, refatoração com a suíte sempre verde. Quando houver etapa de revisão humana, os testes devem ser aprovados antes da implementação.
 
 ---
 

@@ -1,6 +1,37 @@
-@BarberApp.API_HostAddress = http://localhost:5087
+@HostAddress = http://localhost:5087
+@ApiKey = substitua-pela-api-key-do-ambiente
+@JwtToken = substitua-pelo-token-jwt
 
-GET {{BarberApp.API_HostAddress}}/weatherforecast/
+# Todos os endpoints da API, inclusive login e rotas públicas para usuário,
+# exigem X-API-Key. Não salve uma chave real neste arquivo versionado.
+
+### Endpoint público para usuário: exige somente API key
+
+GET {{{{HostAddress}}}}/api/servicos
+Accept: application/json
+X-API-Key: {{ApiKey}}
+
+### Login: também exige API key
+
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+X-API-Key: {{ApiKey}}
+
+{
+  "email": "usuario@example.com",
+  "password": "substitua-pela-senha"
+}
+
+### Endpoint protegido: exige API key e JWT
+
+GET {{HostAddress}}/api/agendamentos
+Accept: application/json
+X-API-Key: {{ApiKey}}
+Authorization: Bearer {{JwtToken}}
+
+### Exemplo do contrato: sem API key retorna 401 + WWW-Authenticate: ApiKey
+
+GET {{HostAddress}}/api/servicos
 Accept: application/json
 
 ###

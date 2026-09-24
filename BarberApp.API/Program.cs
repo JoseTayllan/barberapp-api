@@ -13,8 +13,16 @@ using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using BarberApp.Infrastructure.Payment;
+using BarberApp.API.Middleware;
+using BarberApp.API.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (string.IsNullOrWhiteSpace(builder.Configuration["ApiKey:Value"]))
+{
+    throw new InvalidOperationException(
+        "A configuração 'ApiKey:Value' deve conter uma API key.");
+}
 
 // Banco
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -121,6 +129,14 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Digite o token JWT. O prefixo Bearer é adicionado automaticamente."
     });
 
+    options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
+    {
+        Name = "X-API-Key",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Description = "Informe a API key da aplicação."
+    });
+
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -129,12 +145,14 @@ builder.Services.AddSwaggerGen(options =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    Id = "ApiKey"
                 }
             },
             Array.Empty<string>()
         }
     });
+
+    options.OperationFilter<BearerAuthorizationOperationFilter>();
 });
 
 var app = builder.Build();
@@ -175,6 +193,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors("Frontend");
+
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
