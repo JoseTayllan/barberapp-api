@@ -50,14 +50,14 @@ Mesmo quando múltiplos agentes forem solicitados, eles atuam como professores, 
 
 ## Estado auditado
 
-Conferido contra o repositório em **23/09/2026**:
+Conferido contra o repositório em **26/09/2026**:
 
 - Cinco projetos `net10.0`, com `Nullable` e `ImplicitUsings` habilitados: os quatro projetos da aplicação e `BarberApp.IntegrationTests`.
 - `dotnet build BarberApp.slnx --no-restore` passa com zero erros e zero avisos.
-- `BarberApp.IntegrationTests` usa xUnit, `WebApplicationFactory` e EF Core InMemory. A suíte atual executa **21 casos** de integração sobre API key, compatibilidade com JWT, riscos do middleware e contrato OpenAPI.
+- `BarberApp.IntegrationTests` usa xUnit, `WebApplicationFactory` e EF Core InMemory. A suíte cobre API key, compatibilidade com JWT, OpenAPI, configuração versionada sem credenciais e bootstrap administrativo.
 - Não há `.editorconfig`, analyzers adicionais ou lint dedicado. O lint adotado abaixo é `dotnet format --verify-no-changes`, que acusa problemas de formatação já existentes.
 - O frontend está parcialmente iniciado, fora deste repositório.
-- Há dívidas de segurança: uma credencial PostgreSQL está versionada em `appsettings.json` e o bootstrap cria um administrador com senha fixa. Não reproduza isso; a correção deve ser isolada e incluir rotação dos segredos expostos.
+- A connection string com credencial e a senha administrativa fixa foram removidas do estado atual dos arquivos rastreados. A rotação das credenciais anteriormente expostas, o tratamento do histórico Git e a migração/validação dos segredos locais ainda são obrigações pendentes; remover o valor do arquivo atual não invalida um segredo já divulgado.
 
 ## Arquitetura e stack
 
@@ -103,6 +103,7 @@ BarberApp.slnx
 │   └── Repositories/      consultas e persistência EF Core
 └── BarberApp.IntegrationTests/
     ├── Authentication/    contrato, riscos e OpenAPI da API key
+    ├── Security/          configuração segura e bootstrap administrativo
     └── Infrastructure/    WebApplicationFactory e banco InMemory isolado
 ```
 
@@ -150,6 +151,17 @@ Fluxo esperado: o controller recebe/autoriza e delega; o service coordena o caso
 - Preserve os contratos: API key ausente retorna `401` com `WWW-Authenticate: ApiKey`; inválida, vazia ou múltipla retorna `403`; válida apenas libera o fluxo preexistente.
 - Swagger deve continuar público somente em `Development`. No OpenAPI, operações públicas exigem `ApiKey`; operações com `[Authorize]` exigem `ApiKey` e `Bearer` no mesmo requisito.
 
+### Bootstrap administrativo
+
+- O bootstrap é lógica de inicialização no composition root, não endpoint nem caso de uso público.
+- `BootstrapAdmin:Enabled` ausente ou `false` não cria usuário; as roles continuam sendo garantidas. Valor inválido deve causar fail-fast.
+- Quando habilitado, `BootstrapAdmin:NomeCompleto`, `BootstrapAdmin:Email` e `BootstrapAdmin:Password` são obrigatórios. Em ambiente, use `BootstrapAdmin__Enabled`, `BootstrapAdmin__NomeCompleto`, `BootstrapAdmin__Email` e `BootstrapAdmin__Password`.
+- Habilite somente para a criação inicial. Após confirmar a conta com role `Admin`, desabilite o bootstrap e remova senha, nome e email do ambiente de execução e do mecanismo de deploy/cofre.
+- Conta preexistente com o email configurado e sem role `Admin` é conflito de segurança: falhe sem promovê-la. Conta preexistente já Admin torna a operação idempotente.
+- Falhas de criação de roles, usuário ou vínculo de role interrompem a inicialização e devem divulgar apenas códigos Identity, nunca valores ou descrições que possam conter dados sensíveis.
+- Em disputa concorrente por email, aceite somente a conta que outra instância já concluiu como Admin. O retry atual faz até 10 consultas e nove esperas de 100 ms (aproximadamente 900 ms); ele nunca promove a conta concorrente.
+- Se vincular a role falhar após criar o usuário, tente compensar apagando o usuário. Falha retornada ou exception do provider durante o cleanup implica estado possivelmente parcial: interrompa, inspecione banco/Identity e corrija manualmente antes de tentar novamente.
+
 ### Repositórios, EF Core e banco
 
 - Interfaces ficam no `Domain`; implementações, em `Infrastructure/Repositories`.
@@ -177,7 +189,7 @@ Fluxo esperado: o controller recebe/autoriza e delega; o service coordena o caso
 
 ### Situação atual
 
-`BarberApp.IntegrationTests` é uma suíte xUnit real, registrada em `BarberApp.slnx`. Ela usa `Microsoft.AspNetCore.Mvc.Testing`/`WebApplicationFactory`, substitui PostgreSQL por um banco EF Core InMemory isolado e configura segredos exclusivos de teste em memória. Os **21 casos** atuais cobrem: `401` sem API key e seu challenge; `403` para chave inválida, vazia ou múltipla; chave válida em endpoint público; preservação de JWT; falha de inicialização sem configuração válida; CORS preflight; rota inexistente; login; Swagger público em Development; e os esquemas/requisitos de segurança OpenAPI.
+`BarberApp.IntegrationTests` é uma suíte xUnit real, registrada em `BarberApp.slnx`. Ela usa `Microsoft.AspNetCore.Mvc.Testing`/`WebApplicationFactory`, substitui PostgreSQL por um banco EF Core InMemory isolado e configura valores exclusivos de teste em memória. A cobertura atual inclui: contrato e casos de borda da API key; preservação de JWT; CORS; login; Swagger/OpenAPI; ausência de senha na connection string versionada; configuração, idempotência, concorrência, fail-fast e compensação do bootstrap administrativo.
 
 Essa suíte não substitui testes de persistência contra PostgreSQL para mudanças de schema, constraints, índices ou comportamento específico do provedor.
 
@@ -217,7 +229,7 @@ dotnet run --project .\BarberApp.API\BarberApp.API.csproj
 dotnet watch --project .\BarberApp.API\BarberApp.API.csproj run
 ```
 
-Em `Development`, HTTP usa `http://localhost:5087` e Swagger fica em `/swagger`. São necessários PostgreSQL e configuração local de `ConnectionStrings:DefaultConnection`, `JwtSettings` e `ApiKey:Value` (preferencialmente via `ApiKey__Value`).
+Em `Development`, HTTP usa `http://localhost:5087` e Swagger fica em `/swagger`. São necessários PostgreSQL e configuração local de `ConnectionStrings:DefaultConnection`, `JwtSettings` e `ApiKey:Value`, preferencialmente por variáveis de ambiente/Secret Manager. Para o bootstrap inicial opcional, siga o procedimento seguro abaixo.
 
 ### Testes
 
@@ -244,6 +256,10 @@ dotnet run --project .\BarberApp.API\BarberApp.API.csproj
 ```
 
 Também é possível usar Secret Manager ou um cofre do ambiente para preencher `ApiKey:Value`. Nunca coloque a chave real no README, no arquivo `.http`, em `appsettings*.json`, no código ou nos logs.
+
+### Bootstrap inicial do administrador
+
+Use `BootstrapAdmin__Enabled`, `BootstrapAdmin__NomeCompleto`, `BootstrapAdmin__Email` e `BootstrapAdmin__Password` somente no ambiente seguro da criação inicial. Os valores reais não pertencem a comandos versionados, documentação ou logs. Depois de validar a criação e a role `Admin`, defina `Enabled=false` ou remova a configuração e apague os demais valores do ambiente/cofre de deploy. Falha de configuração ou Identity bloqueia o startup; conflito com conta não Admin e falha de compensação exigem intervenção manual, nunca promoção automática ou nova tentativa cega.
 
 ### Lint/formatação
 
@@ -301,6 +317,7 @@ dotnet ef migrations remove --project .\BarberApp.Infrastructure\BarberApp.Infra
 - **NUNCA** versionar senha, token, JWT secret, connection string com credencial ou chave. Use variável de ambiente, Secret Manager ou cofre.
 - **NUNCA** considerar uma mudança pronta sem inspecionar diff e logs por possível vazamento de segredos.
 - **NUNCA** criar admin com credencial fixa nem logar dado sensível.
+- **NUNCA** manter `BootstrapAdmin:Enabled=true` depois da criação inicial confirmada, promover automaticamente conta existente ou ignorar falha de compensação.
 - **NUNCA** confiar no request para autorização, expor stack trace ou revelar detalhes internos.
 - **NUNCA** aplicar migration destrutiva sem backup, SQL revisado, rollback e confirmação do ambiente.
 - **NUNCA** apagar/reescrever migration compartilhada ou aplicada; crie uma corretiva.

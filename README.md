@@ -66,7 +66,7 @@ O sistema tem três perfis de usuário:
 
 ### Como cada role é criada
 
-- **Admin** — criado automaticamente na primeira inicialização
+- **Admin** — criado somente pelo bootstrap administrativo opcional descrito em [Bootstrap inicial do administrador](#bootstrap-inicial-do-administrador)
 - **Barbeiro** — criado pelo Admin via `POST /api/barbeiros`
 - **Cliente** — criado pelo próprio usuário via `POST /api/auth/registro`
 
@@ -177,7 +177,7 @@ Nas tabelas abaixo, **Público** significa “não exige JWT”; a API key globa
 **Resposta do login/registro:**
 ```json
 {
-  "token": "eyJ...",
+  "token": "<TOKEN_JWT_RETORNADO>",
   "nome": "João Silva",
   "email": "joao@email.com",
   "roles": ["Cliente"],
@@ -202,7 +202,7 @@ Nas tabelas abaixo, **Público** significa “não exige JWT”; a API key globa
 
 **Body PATCH alterar-senha:**
 ```json
-{ "senhaAtual": "Senha@123", "novaSenha": "NovaSenha@456" }
+{ "senhaAtual": "<SENHA_ATUAL_PRIVADA>", "novaSenha": "<NOVA_SENHA_PRIVADA>" }
 ```
 
 ---
@@ -221,7 +221,7 @@ Nas tabelas abaixo, **Público** significa “não exige JWT”; a API key globa
   "nomeCompleto": "Carlos Silva",
   "email": "carlos@barbearia.com",
   "telefone": "62999990001",
-  "senha": "Barbeiro@123",
+  "senha": "<SENHA_FORTE_PRIVADA_DO_BARBEIRO>",
   "foto": null
 }
 ```
@@ -470,35 +470,51 @@ cd barberapp-api
 ```
 
 ### 2. Configure os secrets locais
-Crie `BarberApp.API/appsettings.Development.json`:
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=barberapp;Username=postgres;Password=sua_senha"
-  },
-  "JwtSettings": {
-    "SecretKey": "sua-chave-secreta-minimo-32-caracteres",
-    "Issuer": "BarberApp",
-    "Audience": "BarberAppUsers",
-    "ExpiracaoHoras": 8
-  },
-  "Barbearia": {
-    "HorarioAbertura": "08:00",
-    "HorarioFechamento": "18:00"
-  },
-  "ApiKey": {
-    "Value": "apenas-exemplo-local-nao-versione-uma-chave-real"
-  }
-}
-```
 
-Prefira fornecer a chave por Secret Manager, cofre do ambiente ou variável de ambiente, em vez de salvá-la em arquivo:
+Use variáveis de ambiente, Secret Manager ou um cofre do ambiente. Os valores abaixo são placeholders deliberadamente não utilizáveis; substitua-os somente no seu ambiente e nunca os versione:
 
 ```powershell
-$env:ApiKey__Value = "gere-uma-chave-longa-e-aleatoria"
+$env:ConnectionStrings__DefaultConnection = "<CONNECTION_STRING_PRIVADA>"
+$env:JwtSettings__SecretKey = "<JWT_SECRET_PRIVADO_COM_ENTROPIA_ADEQUADA>"
+$env:JwtSettings__Issuer = "<ISSUER_DO_AMBIENTE>"
+$env:JwtSettings__Audience = "<AUDIENCE_DO_AMBIENTE>"
+$env:JwtSettings__ExpiracaoHoras = "<HORAS_DE_EXPIRACAO>"
+$env:ApiKey__Value = "<API_KEY_PRIVADA_GERADA_ALEATORIAMENTE>"
 ```
 
-`ApiKey__Value` é mapeada pelo .NET para `ApiKey:Value`. A aplicação recusa iniciar se esse valor estiver ausente, vazio ou contiver apenas espaços. Nunca versione, registre em log ou compartilhe a chave real.
+Na configuração do .NET, `__` representa `:`; por exemplo, `ApiKey__Value` preenche `ApiKey:Value`. A aplicação recusa iniciar se a API key estiver ausente, vazia ou contiver apenas espaços. Nunca coloque credenciais em `appsettings*.json`, documentação, arquivos `.http`, código ou logs.
+
+### Bootstrap inicial do administrador
+
+O bootstrap não é um endpoint. Ele é executado durante a inicialização da aplicação e vem desabilitado quando `BootstrapAdmin:Enabled` está ausente ou é `false`. As roles `Admin`, `Barbeiro` e `Cliente` continuam sendo garantidas independentemente do bootstrap.
+
+Para a criação inicial, configure temporariamente estas variáveis no ambiente seguro de execução:
+
+```powershell
+$env:BootstrapAdmin__Enabled = "true"
+$env:BootstrapAdmin__NomeCompleto = "<NOME_DO_ADMINISTRADOR_INICIAL>"
+$env:BootstrapAdmin__Email = "<EMAIL_PRIVADO_DO_ADMINISTRADOR_INICIAL>"
+$env:BootstrapAdmin__Password = "<SENHA_FORTE_GERADA_FORA_DO_REPOSITORIO>"
+```
+
+Inicie a aplicação uma vez, confirme por um canal seguro que a conta foi criada com a role `Admin` e então desabilite o bootstrap e remova o segredo do ambiente:
+
+```powershell
+$env:BootstrapAdmin__Enabled = "false"
+Remove-Item Env:BootstrapAdmin__Password -ErrorAction SilentlyContinue
+```
+
+Remova também `BootstrapAdmin__NomeCompleto` e `BootstrapAdmin__Email` quando não forem mais necessários. Em produção, retire esses valores do mecanismo de deploy/cofre, não apenas da sessão local.
+
+O bootstrap usa fail-fast:
+
+- `Enabled` precisa ser booleano; quando for `true`, nome, email e senha precisam estar preenchidos. Campo inválido ou ausente impede a inicialização sem imprimir seu valor.
+- Falha ao criar uma role ou rejeição do Identity impede a inicialização e expõe somente códigos de erro, não senha ou descrições potencialmente sensíveis.
+- Se o email configurado já pertencer a uma conta sem a role `Admin`, a aplicação falha e **não promove** essa conta automaticamente. A situação deve ser investigada manualmente.
+- Se outra instância estiver criando o mesmo admin, a instância perdedora consulta o estado até 10 vezes, com nove esperas de 100 ms (aproximadamente 900 ms). Ela só continua quando a conta concorrente já possui a role `Admin`; nunca atribui a role por conta própria.
+- Se a criação do usuário funcionar, mas a associação à role falhar, o bootstrap tenta apagar o usuário como compensação. Se o cleanup retornar falha ou o provedor lançar uma exception, a inicialização falha e o banco pode exigir inspeção e correção manual antes de uma nova tentativa.
+
+Não mantenha o bootstrap habilitado como mecanismo permanente de administração. Criação, recuperação ou promoção posterior de administradores exige um fluxo operacional próprio e auditável.
 
 ### 3. Execute as migrations
 ```bash
@@ -517,18 +533,14 @@ http://localhost:5087/swagger
 
 No Swagger, use **Authorize** para informar `X-API-Key`; em operações autenticadas, informe também o Bearer token. O Swagger só é publicado no ambiente `Development`.
 
-> Na primeira inicialização o sistema cria automaticamente:
-> - Roles: `Admin`, `Barbeiro`, `Cliente`
-> - Usuário admin padrão: `admin@barberapp.com` / `Admin@123`
-
 ---
 
 ## 🧪 Testes
 
-Há um projeto real de integração, `BarberApp.IntegrationTests`, com **21 casos** xUnit. Ele sobe a API com `WebApplicationFactory`, usa um banco EF Core InMemory isolado e valida autenticação por API key, compatibilidade JWT, casos de borda e contrato Swagger/OpenAPI.
+Há um projeto real de integração, `BarberApp.IntegrationTests`. Ele sobe a API com `WebApplicationFactory`, usa um banco EF Core InMemory isolado e valida autenticação por API key, compatibilidade JWT, casos de borda, contrato Swagger/OpenAPI, ausência de segredos na configuração versionada e o bootstrap administrativo.
 
 ```powershell
-# Toda a solução; confirme no resumo que 21 casos foram executados.
+# Toda a solução; confira no resumo quantos testes foram descobertos e executados.
 dotnet test BarberApp.slnx --no-restore
 
 # Saída detalhada
