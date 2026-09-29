@@ -483,3 +483,6 @@ $RECYCLE.BIN/
 
 # Secrets locais
 **/appsettings.Development.json
+
+# C# Dev Kit language service cache
+*.lscache
