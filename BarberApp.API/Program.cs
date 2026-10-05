@@ -89,6 +89,7 @@ builder.Services.AddScoped<IServicoRepository, ServicoRepository>();
 builder.Services.AddScoped<IAgendamentoRepository, AgendamentoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IPagamentoRepository, PagamentoRepository>();
+builder.Services.AddScoped<IConexaoMercadoPagoRepository, ConexaoMercadoPagoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IDisponibilidadeRepository, DisponibilidadeRepository>();
 builder.Services.AddScoped<IExcecaoAgendaRepository, ExcecaoAgendaRepository>();
@@ -104,6 +105,16 @@ builder.Services.AddScoped<ClienteService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<PagamentoService>();
 builder.Services.AddScoped<IPaymentService, MockPaymentService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<TentativasMercadoPagoStore>();
+builder.Services.AddScoped<IConexaoMercadoPagoService, ConexaoMercadoPagoService>();
+builder.Services.AddScoped<MercadoPagoOAuthClient>();
+builder.Services.AddHttpClient("MercadoPagoOAuth", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.MaxResponseContentBufferSize = 65_536;
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<DisponibilidadeService>();
 builder.Services.AddScoped<ExcecaoAgendaService>();                                                                                                                                                                                                                 
 
@@ -207,6 +218,7 @@ using (var scope = app.Services.CreateScope())
             };
 
             var createResult = await userManager.CreateAsync(newAdmin, bootstrapAdminPassword!);
+            
             if (!createResult.Succeeded)
             {
                 if (!IsDuplicateIdentityFailure(createResult))

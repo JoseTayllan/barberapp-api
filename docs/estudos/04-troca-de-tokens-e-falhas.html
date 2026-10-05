@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 04 — Troca de tokens e falhas externas</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2 { color: #a8c8ff; line-height: 1.3; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    a { color: #a8c8ff; }
+  </style>
+</head>
+<body><main>
+  <h1>Troca de tokens: nosso próximo contrato</h1>
+  <p>05/10/2026 — Histórico RED: 16 casos, 14 falhas esperadas e 2 aprovados. Após aprovação e testes de armazenamento, troca e persistência protegida foram implementadas: GREEN da solução com PostgreSQL, 125 aprovados. Nenhuma conta real foi conectada. Continue no estudo 05 para entender proteção e limites.</p>
+  <section>
+    <h2>Código não é access token</h2>
+    <p>O código recebido pelo callback é uma autorização temporária. O servidor o apresenta ao provedor com client_id, client_secret, redirect_uri e verifier PKCE. O provedor pode retornar access_token, refresh_token, expires_in e user_id.</p>
+    <p>Esses valores nunca vão para o navegador. O servidor deve validar a resposta e proteger as credenciais antes de declarar a conta conectada.</p>
+    <p>Fluxo esperado: state válido → consumo único → troca externa → validação → armazenamento protegido → Conectado. Uma falha interrompe essa sequência.</p>
+  </section>
+  <section>
+    <h2>Como provar o PKCE?</h2>
+    <p>O teste guarda o challenge da URL de autorização. Depois captura o verifier enviado ao provedor simulado e calcula <code>Base64URL(SHA256(ASCII(verifier)))</code>. O resultado deve ser exatamente o challenge original: não basta enviar qualquer texto com 43 caracteres.</p>
+  </section>
+  <section>
+    <h2>Simulação HTTP não é sandbox real</h2>
+    <p>O handler de teste responde dentro do processo, sem abrir conexão com o Mercado Pago. Ele captura método, URL e JSON usando apenas valores fictícios.</p>
+    <p>Sandbox real usa aplicação e contas de teste no provedor. O payload proposto envia test_token=true, mas estes testes não validam conectividade, credenciais reais, consentimento ou compatibilidade de produção. Esses passos só vêm após proteção e persistência.</p>
+  </section>
+  <section>
+    <h2>Erros fazem parte da especificação</h2>
+    <p>Falha HTTP do provedor: 502 com título seguro. Resposta incompleta ou inválida: 502 com outro título seguro. Timeout: 503. O body recebido não deve ser reproduzido para o cliente.</p>
+    <p>Não repetimos automaticamente a troca: o provedor pode ter consumido o código antes de a resposta se perder. Para tentar novamente, o administrador inicia uma nova autorização.</p>
+    <p>A conexão agora é habilitada por configuração, preservando o comportamento anterior quando desabilitada. As expectativas dos 16 testes foram preservadas.</p>
+  </section>
+  <section>
+    <h2>O que ainda falta testar?</h2>
+    <p>Persistência protegida e falhas de gravação/proteção/driver já possuem testes. Ainda faltam recuperação operacional das chaves, concorrência ao substituir uma conta, renovação, desconexão e auditoria de instrumentação futura. Não é aceitável retornar Conectado somente porque o HTTP externo respondeu 200.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que o client_secret fica no body enviado pelo servidor?</summary><p>É uma credencial privada da aplicação usada para a troca. Não deve aparecer na URL de autorização, no frontend, nos logs ou no repositório.</p></details>
+    <details><summary>2. Como o teste descobre um verifier incorreto?</summary><p>Recalcula seu SHA-256 em Base64URL e compara com o challenge da tentativa. Tamanho e formato corretos, sozinhos, não demonstram que ele pertence àquela tentativa.</p></details>
+    <details><summary>3. Um HTTP 200 com body vazio comprova conexão?</summary><p>Não. É preciso validar tokens, tipo, identificador e validade, depois armazenar as credenciais com proteção. Nosso teste rejeita a resposta vazia.</p></details>
+    <details><summary>4. Por que state desconhecido deve produzir zero chamadas?</summary><p>Sem uma tentativa válida, não existe autorização para trocar o código. Validar antes de contatar o provedor também reduz abuso e custo.</p></details>
+    <details><summary>5. Por que não repetir automaticamente após timeout?</summary><p>Não sabemos se o provedor consumiu o código. Um retry cego pode falhar ou causar inconsistência; o fluxo conservador exige iniciar outra autorização.</p></details>
+    <details><summary>6. Os testes em RED são um bug introduzido na API?</summary><p>Não neste incremento: só adicionamos especificações do comportamento futuro. A implementação atual não foi alterada. A nova suíte deve ficar verde antes de concluir essa feature.</p></details>
+  </section>
+  <p><a href="https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation">Documentação oficial Mercado Pago</a></p>
+</main></body>
+</html>

@@ -366,7 +366,21 @@ GET /api/agendamentos/horarios-disponiveis
 
 ---
 
+### Conexão Mercado Pago — início OAuth
+
+`POST /api/integracoes/mercado-pago/autorizacao` exige `X-API-Key` e JWT com role `Admin` e identificador do usuário. Retorna `urlAutorizacao` e `expiraEm`, com `Cache-Control: no-store`. Configuração inválida retorna `503` com título `MercadoPagoNaoConfigurado`.
+
+Configure `MercadoPago__ClientId`, `MercadoPago__ClientSecret` e `MercadoPago__RedirectUri` somente no ambiente/cofre. O redirect deve usar HTTPS, sem credenciais ou fragmento, e corresponder ao cadastro no provedor. Não enviar segredo ao frontend.
+
+Somente o GET do callback recebe retorno sem API key/JWT e valida state temporário de uso único. Recusa válida retorna `AutorizacaoRecusada`. A conexão é opt-in: com `MercadoPago__ConexaoEnabled=true` e `MercadoPago__Sandbox=true`, o servidor pode trocar o código com PKCE e retornar `Conectado` após salvar os tokens criptografados. Desabilitada por padrão, preserva `503 MercadoPagoTrocaTokenPendente`. Não retorna tokens ao navegador.
+
+É necessário revisar/aplicar a migration `20261005172851_AddConexaoMercadoPago` ao ambiente correto e validar a proteção/persistência das chaves Data Protection antes de usar sandbox remoto. A migration foi aplicada somente ao banco isolado de testes do WSL; o banco da aplicação não foi modificado. Não ativar produção: renovação, desconexão/revogação, reconexão concorrente, checkout e notificações continuam pendentes. Nenhuma conta real foi conectada e os pagamentos existentes continuam simulados.
+
+GREEN no WSL com PostgreSQL incluído: 125 testes aprovados (22 unitários + 103 integração), zero falhas/ignorados; build sem avisos/erros. Swagger declara callback com `security: [{}]`. O diff aguarda revisão final. Veja [contrato e riscos](docs/pagamentos-mercado-pago.md), [estudo de proteção](docs/estudos/05-protecao-de-tokens-e-persistencia.html) e [testes no WSL](docs/ambiente-wsl.md).
+
 ### 💳 Pagamentos — `/api/pagamentos`
+
+Troca OAuth e persistência protegida foram implementadas após RED, sem alterar as expectativas dos 16 testes de troca. Isso não implementa o checkout ou pagamento real; este endpoint continua utilizando o mock. Veja o [estudo da troca](docs/estudos/04-troca-de-tokens-e-falhas.html).
 
 | Método | Rota | Acesso | Descrição |
 |---|---|---|---|

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 03 — Callback, state e concorrência</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2 { color: #a8c8ff; line-height: 1.3; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    a { color: #a8c8ff; }
+  </style>
+</head>
+<body><main>
+  <h1>Callback seguro: reconhecer e consumir uma tentativa</h1>
+  <p>Este capítulo registra o GREEN do callback: 95 testes aprovados, zero falhas/ignorados. Ajuste OpenAPI aprovado pelo mantenedor. O incremento posterior chegou a 125 testes; veja o <a href="05-protecao-de-tokens-e-persistencia.html">capítulo 5</a>. Não houve conexão com conta real.</p>
+  <section>
+    <h2>Por que o callback não pede JWT e API key?</h2>
+    <p>O provedor redireciona o navegador para a API sem nossos headers. A exceção é restrita ao GET da rota callback. A criação da tentativa continua exigindo Admin autenticado e API key. O retorno deve apresentar o state aleatório que o servidor associa à tentativa desse administrador. Não confiamos em um adminId enviado na URL.</p>
+    <p>O state é uma capacidade temporária: quem o possui pode apresentar o retorno. Não compartilhe URLs OAuth nem registre seus parâmetros. O callback não autentica um novo usuário nem concede role.</p>
+  </section>
+  <section>
+    <h2>Consultar e remover: por que precisa de lock?</h2>
+    <p>Sem sincronização, duas requisições podem consultar a mesma tentativa antes de qualquer uma removê-la. Ambas seriam aceitas. O lock envolve consulta, comparação e remoção. Somente uma pode consumir a tentativa.</p>
+    <p>O serviço é singleton: todas as requisições nesta instância compartilham o mesmo lock. Isso não sincroniza servidores diferentes. A memória é temporária e o reinício perde as tentativas.</p>
+    <p>Uma nova tentativa do mesmo administrador remove a anterior. Administradores diferentes possuem contextos separados. O relógio injetado permite testar exatamente o limite de dez minutos, sem esperar dez minutos reais.</p>
+  </section>
+  <section>
+    <h2>Recusa não é erro inesperado</h2>
+    <p>Uma tentativa válida com <code>error=access_denied</code> retorna <code>AutorizacaoRecusada</code> e é consumida. Parâmetros conflitantes ou repetidos são rejeitados. As mensagens não reproduzem os valores recebidos.</p>
+    <p>Com a conexão desabilitada, código válido retorna 503, <code>MercadoPagoTrocaTokenPendente</code>. No incremento posterior, quando habilitada e configurada, troca de tokens e gravação protegida precisam concluir antes do retorno <code>Conectado</code>. Isso não prova cobrança nem integração com uma conta real.</p>
+  </section>
+  <section>
+    <h2>O teste também pode especificar a representação errada</h2>
+    <p>O objetivo é documentar que o callback não exige API key ou Bearer. O teste exige literalmente <code>security: []</code>. O serializador omite a coleção vazia, herdando a regra global. A especificação OpenAPI também admite um requisito vazio: <code>security: [{}]</code>.</p>
+    <p>Não removemos a asserção para conseguir verde. O mantenedor aprovou o ajuste: agora verificamos exatamente um requisito vazio, preservando as asserções de API key e Bearer na autorização. Os 95 testes passaram após a alteração.</p>
+    <p><a href="https://spec.openapis.org/oas/v3.0.3.html#operation-object">Referência OpenAPI</a></p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. O que impede um retorno de promover alguém a Admin?</summary><p>O callback não cria usuários nem altera roles. Ele só reconhece uma tentativa que foi iniciada por Admin autenticado. O vínculo vem do contexto no servidor, não de um identificador informado no retorno.</p></details>
+    <details><summary>2. Por que não basta remover a tentativa depois da consulta?</summary><p>Outra requisição pode consultar no intervalo entre leitura e remoção. Precisamos tornar a sequência indivisível, com lock compartilhado nesta instância.</p></details>
+    <details><summary>3. Com oito retornos concorrentes da mesma recusa válida, quantos são aceitos?</summary><p>Exatamente um recebe 200; os outros sete recebem 400. Esse comportamento tem teste HTTP.</p></details>
+    <details><summary>4. O instante igual à expiração é válido?</summary><p>Não. A regra usa expiração menor ou igual ao instante atual para rejeitar. Testamos dez e onze minutos usando TimeProvider controlado.</p></details>
+    <details><summary>5. Pode registrar a URL completa para depurar?</summary><p>Não. A query pode conter state e código de autorização. O código novo não cria logs; a configuração atual restringe Microsoft.AspNetCore a Warning. Proxies, hospedagem e futura instrumentação também precisam redigir essas queries.</p></details>
+    <details><summary>6. É correto apagar o teste Swagger que falhou?</summary><p>Não. Primeiro identificar a diferença entre comportamento e representação. Aqui a proposta mantém a garantia e usa outra representação válida da especificação, com revisão explícita antes de mudar o teste.</p></details>
+  </section>
+</main></body>
+</html>

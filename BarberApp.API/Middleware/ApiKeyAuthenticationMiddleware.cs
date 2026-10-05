@@ -20,6 +20,13 @@ public sealed class ApiKeyAuthenticationMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // O redirect do provedor não leva nossos headers; este GET valida state no serviço OAuth.
+        if (MercadoPagoCallbackEndpoint.IsCallback(context.Request.Path.Value, context.Request.Method))
+        {
+            await _next(context);
+            return;
+        }
+
         if (!context.Request.Headers.TryGetValue(ApiKeyHeaderName, out var informedApiKey))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;

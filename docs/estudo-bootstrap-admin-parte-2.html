@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Bootstrap seguro — Parte 2</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6fb;
+      --card: #ffffff;
+      --soft: #edf4ff;
+      --text: #172033;
+      --muted: #617087;
+      --border: #d8e1ef;
+      --primary: #2458c6;
+      --primary-dark: #173d8d;
+      --success: #0a7650;
+      --success-bg: #e9f9f1;
+      --danger: #b42318;
+      --danger-bg: #fff0ee;
+      --warning: #8a5700;
+      --warning-bg: #fff7e6;
+      --code: #111827;
+      --code-text: #e6edf7;
+      --shadow: 0 14px 35px rgba(24, 35, 54, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 17px/1.65 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    header {
+      padding: 3rem 1rem 2.6rem;
+      color: white;
+      background:
+        radial-gradient(circle at 85% 20%, rgba(255,255,255,.18), transparent 26%),
+        linear-gradient(135deg, #112a5f, #2458c6 62%, #5b8def);
+    }
+
+    .wrap {
+      width: min(100% - 2rem, 850px);
+      margin-inline: auto;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-bottom: .7rem;
+      padding: .25rem .65rem;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 999px;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 8vw, 3.5rem);
+      line-height: 1.05;
+    }
+
+    header p {
+      max-width: 650px;
+      margin: 1rem 0 0;
+      opacity: .92;
+    }
+
+    main { padding-block: 1.2rem 4rem; }
+
+    nav, section {
+      margin-top: 1rem;
+      padding: 1.35rem;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    nav ul {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: .5rem 1rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    nav a {
+      color: var(--primary);
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    h2 {
+      margin: 0 0 .8rem;
+      font-size: 1.45rem;
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 1.4rem 0 .45rem;
+      font-size: 1.08rem;
+    }
+
+    p, ul, ol { margin-block: .65rem; }
+    li + li { margin-top: .45rem; }
+
+    code {
+      padding: .12rem .34rem;
+      border-radius: 6px;
+      background: #e8eef9;
+      color: #173d75;
+      font: .9em "Cascadia Code", Consolas, monospace;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 12px;
+      background: var(--code);
+      color: var(--code-text);
+      font-size: .84rem;
+      line-height: 1.55;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    pre code { padding: 0; background: transparent; color: inherit; }
+
+    .callout {
+      margin: 1rem 0;
+      padding: 1rem;
+      border-left: 5px solid var(--primary);
+      border-radius: 10px;
+      background: var(--soft);
+    }
+
+    .callout strong { color: var(--primary-dark); }
+    .warning { border-left-color: var(--warning); background: var(--warning-bg); }
+    .warning strong { color: var(--warning); }
+    .success { border-left-color: var(--success); background: var(--success-bg); }
+    .success strong { color: var(--success); }
+
+    .flow {
+      display: grid;
+      gap: .45rem;
+      margin: 1rem 0;
+      text-align: center;
+      font-weight: 750;
+    }
+
+    .flow span {
+      padding: .75rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--soft);
+    }
+
+    .flow i { color: var(--primary); font-style: normal; }
+
+    table {
+      width: 100%;
+      margin: 1rem 0;
+      border-collapse: collapse;
+      font-size: .94rem;
+    }
+
+    th, td {
+      padding: .72rem;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: var(--soft); }
+
+    details {
+      margin-top: .8rem;
+      padding: .9rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--card) 92%, var(--soft));
+    }
+
+    summary {
+      color: var(--primary-dark);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .question {
+      margin-top: 1rem;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--card) 94%, var(--soft));
+    }
+
+    .question p { margin-top: 0; font-weight: 750; }
+
+    .options {
+      display: grid;
+      gap: .55rem;
+    }
+
+    button {
+      width: 100%;
+      padding: .8rem .9rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--text);
+      font: inherit;
+      font-weight: 680;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    button:hover, button:focus-visible {
+      border-color: var(--primary);
+      outline: 3px solid color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+
+    button.correct {
+      border-color: var(--success);
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    button.incorrect {
+      border-color: var(--danger);
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    button:disabled { cursor: default; opacity: .88; }
+
+    .feedback {
+      display: none;
+      margin: .75rem 0 0;
+      padding: .75rem;
+      border-radius: 9px;
+      background: var(--soft);
+    }
+
+    .feedback.visible { display: block; }
+
+    .score-card {
+      position: sticky;
+      top: .5rem;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: .8rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .score-card strong { color: var(--primary-dark); }
+
+    .reset {
+      width: auto;
+      padding: .55rem .8rem;
+      background: var(--primary);
+      color: white;
+      text-align: center;
+    }
+
+    .final-result {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 12px;
+      background: var(--success-bg);
+      color: var(--success);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .final-result.visible { display: block; }
+
+    footer {
+      padding: 0 1rem 3rem;
+      color: var(--muted);
+      text-align: center;
+      font-size: .9rem;
+    }
+
+    @media (max-width: 540px) {
+      body { font-size: 16px; }
+      header { padding-top: 2.3rem; }
+      nav, section { padding: 1rem; border-radius: 14px; }
+      th, td { padding: .55rem; }
+      .score-card { align-items: stretch; flex-direction: column; }
+      .reset { width: 100%; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --bg: #0b111b;
+        --card: #151d29;
+        --soft: #1b2a42;
+        --text: #e7edf7;
+        --muted: #a8b5c7;
+        --border: #2e3b4e;
+        --primary: #82afff;
+        --primary-dark: #b0ccff;
+        --success: #72e1ad;
+        --success-bg: #102d23;
+        --danger: #ff948a;
+        --danger-bg: #3a1918;
+        --warning: #f5c875;
+        --warning-bg: #322713;
+        --shadow: none;
+      }
+
+      code { background: #20314b; color: #d2e1ff; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <span class="tag">BarberApp API · Parte 2</span>
+      <h1>Do escopo à compensação</h1>
+      <p>Revisão do fluxo de roles, usuários, concorrência, tratamento de falhas e segurança do bootstrap administrativo.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <nav aria-label="Índice">
+      <ul>
+        <li><a href="#escopo">1. Escopo e Identity</a></li>
+        <li><a href="#roles">2. Criação das roles</a></li>
+        <li><a href="#usuario">3. Usuário existente</a></li>
+        <li><a href="#criacao">4. Criação do usuário</a></li>
+        <li><a href="#duplicidade">5. Duplicidade e concorrência</a></li>
+        <li><a href="#compensacao">6. Compensação</a></li>
+        <li><a href="#erros">7. Erros seguros</a></li>
+        <li><a href="#testes">8. Testes em resumo</a></li>
+        <li><a href="#quiz">9. Quiz interativo</a></li>
+      </ul>
+    </nav>
+
+    <section id="escopo">
+      <h2>1. Escopo e ASP.NET Identity</h2>
+      <pre><code>using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider
+        .GetRequiredService&lt;RoleManager&lt;IdentityRole&gt;&gt;();
+
+    var userManager = scope.ServiceProvider
+        .GetRequiredService&lt;UserManager&lt;ApplicationUser&gt;&gt;();
+}</code></pre>
+      <table>
+        <thead><tr><th>Elemento</th><th>Responsabilidade</th></tr></thead>
+        <tbody>
+          <tr><td><code>scope</code></td><td>Cria um escopo temporário para usar dependências de vida curta durante o startup.</td></tr>
+          <tr><td><code>RoleManager</code></td><td>Consulta, cria, atualiza e remove roles.</td></tr>
+          <tr><td><code>UserManager</code></td><td>Consulta e administra usuários, senhas e associações com roles.</td></tr>
+          <tr><td><code>using</code></td><td>Chama <code>Dispose()</code> ao final e libera recursos do escopo de modo determinístico.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warning">
+        <strong>Precisão:</strong> <code>using</code> não “limpa a memória”. O Garbage Collector administra a memória comum. O <code>Dispose()</code> encerra corretamente recursos como o contexto e conexões relacionadas ao banco.
+      </div>
+    </section>
+
+    <section id="roles">
+      <h2>2. Criação segura das roles</h2>
+      <pre><code>foreach (var role in new[] { adminRoleName, "Barbeiro", "Cliente" })
+{
+    if (!await roleManager.RoleExistsAsync(role))
+    {
+        var result = await roleManager.CreateAsync(
+            new IdentityRole(role));
+
+        if (!result.Succeeded &amp;&amp;
+            !await roleManager.RoleExistsAsync(role))
+        {
+            throw CreateIdentityException(result);
+        }
+    }
+}</code></pre>
+      <div class="flow">
+        <span>Role já existe?</span><i>↓</i>
+        <span>Não → tenta criar</span><i>↓</i>
+        <span>Criação falhou?</span><i>↓</i>
+        <span>Verifica novamente antes de concluir que houve falha real</span>
+      </div>
+      <p>A segunda consulta protege contra uma corrida: duas instâncias podem observar a ausência da role e tentar criá-la quase simultaneamente. Uma vence; a outra recebe erro de duplicidade, verifica novamente e percebe que a role agora existe.</p>
+      <div class="callout">
+        <strong>Importante:</strong> <code>await</code> espera aquela operação terminar. A segunda verificação não existe porque o primeiro método “ainda está executando”, mas porque outra instância da aplicação pode atuar ao mesmo tempo.
+      </div>
+    </section>
+
+    <section id="usuario">
+      <h2>3. Usuário existente e elevação de privilégios</h2>
+      <pre><code>var admin = await userManager
+    .FindByEmailAsync(bootstrapAdminEmail!);
+
+if (admin is not null &amp;&amp;
+    !await userManager.IsInRoleAsync(admin, adminRoleName))
+{
+    throw new InvalidOperationException(
+        "BootstrapAdminExistingUserIsNotAdmin");
+}</code></pre>
+      <table>
+        <thead><tr><th>Estado encontrado</th><th>Decisão</th></tr></thead>
+        <tbody>
+          <tr><td>Conta não existe</td><td>O bootstrap pode criar a conta inicial.</td></tr>
+          <tr><td>Conta existe e já é Admin</td><td>Estado esperado; operação idempotente.</td></tr>
+          <tr><td>Conta existe sem Admin</td><td>Falha e exige investigação humana; nunca promove automaticamente.</td></tr>
+        </tbody>
+      </table>
+      <p>Promover automaticamente uma conta apenas porque seu email coincide com a configuração poderia transformar um cliente, barbeiro ou conta comprometida em administrador.</p>
+    </section>
+
+    <section id="criacao">
+      <h2>4. Criação do usuário e os dois significados de <code>!</code></h2>
+      <pre><code>var createResult = await userManager.CreateAsync(
+    newAdmin,
+    bootstrapAdminPassword!);
+
+if (!createResult.Succeeded)
+{
+    // tratar falha
+}</code></pre>
+      <table>
+        <thead><tr><th>Sintaxe</th><th>Significado</th></tr></thead>
+        <tbody>
+          <tr><td><code>bootstrapAdminPassword!</code></td><td>Operador de supressão de nulabilidade. Apenas diz ao compilador para confiar que o valor não é nulo.</td></tr>
+          <tr><td><code>!createResult.Succeeded</code></td><td>Negação booleana executada em runtime: transforma <code>true</code> em <code>false</code> e vice-versa.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warning">
+        <strong>O operador pós-fixo não valida:</strong> se a senha realmente fosse <code>null</code>, o <code>!</code> não criaria um valor nem impediria falhas. A validação real ocorreu antes, em <code>GetRequiredConfiguration</code>.
+      </div>
+      <p><code>CreateAsync</code> valida o usuário e a senha, cria o hash, persiste a conta e devolve um <code>IdentityResult</code> com sucesso ou códigos de erro.</p>
+    </section>
+
+    <section id="duplicidade">
+      <h2>5. Duplicidade e retry de concorrência</h2>
+      <pre><code>var errors = result.Errors.ToArray();
+
+return errors.Length &gt; 0 &amp;&amp;
+    errors.All(error =&gt;
+        error.Code is "DuplicateEmail" or "DuplicateUserName");</code></pre>
+      <p>O retry só é permitido quando existe pelo menos um erro e <strong>todos</strong> são duplicidades. Uma falha mista, como <code>DuplicateEmail</code> junto de <code>PasswordTooShort</code>, não é concorrência pura e deve interromper o startup.</p>
+      <h3>Dez consultas, nove esperas</h3>
+      <pre><code>const int maximumAttempts = 10;
+var retryDelay = TimeSpan.FromMilliseconds(100);</code></pre>
+      <p>São feitas até dez consultas, mas somente nove intervalos de 100 ms. Após a décima consulta não existe nova tentativa, portanto esperar outra vez seria inútil.</p>
+      <p>O método retorna sucesso apenas quando:</p>
+      <pre><code>concurrentAdmin is not null &amp;&amp;
+await userManager.IsInRoleAsync(
+    concurrentAdmin,
+    adminRoleName)</code></pre>
+      <p>As condições estão ligadas por <code>&amp;&amp;</code>: o usuário precisa existir <strong>e</strong> já possuir a role <code>Admin</code>. O processo perdedor observa; nunca promove.</p>
+    </section>
+
+    <section id="compensacao">
+      <h2>6. Compensação de estado parcial</h2>
+      <pre><code>if (!addToRoleResult.Succeeded)
+{
+    var cleanupResult =
+        await userManager.DeleteAsync(newAdmin);
+
+    throw cleanupResult.Succeeded
+        ? CreateIdentityException(addToRoleResult)
+        : CreateIdentityException(
+            addToRoleResult,
+            cleanupResult);
+}</code></pre>
+      <div class="flow">
+        <span>Usuário foi criado</span><i>↓</i>
+        <span>Adicionar Admin falhou</span><i>↓</i>
+        <span>Tenta apagar o usuário</span><i>↓</i>
+        <span>Em todos os casos, o startup falha</span>
+      </div>
+      <p>Se a limpeza funcionar, o banco volta a um estado sem a conta parcial. Se falhar, pode permanecer um usuário sem a role <code>Admin</code>, exigindo inspeção manual.</p>
+      <div class="callout success">
+        <strong>Compensar não significa concluir:</strong> apagar o usuário repara o estado parcial, mas o administrador inicial ainda não foi criado. Por isso, a inicialização falha mesmo quando o cleanup funciona.
+      </div>
+    </section>
+
+    <section id="erros">
+      <h2>7. Mensagens de erro seguras</h2>
+      <pre><code>var errorCodes = string.Join(", ", results
+    .SelectMany(result =&gt; result.Errors)
+    .Select(error =&gt; error.Code));</code></pre>
+      <ul>
+        <li><code>params</code> permite receber um ou vários <code>IdentityResult</code>.</li>
+        <li><code>SelectMany</code> reúne os erros de todos os resultados.</li>
+        <li><code>Select</code> extrai apenas cada <code>Code</code>.</li>
+        <li><code>string.Join</code> produz uma mensagem curta e objetiva.</li>
+      </ul>
+      <p>As descrições não são usadas porque podem mudar, ser localizadas ou ser produzidas por um provider personalizado. O objetivo é diagnosticar usando códigos sem expor senha, email ou detalhes desnecessários.</p>
+    </section>
+
+    <section id="testes">
+      <h2>8. Testes em resumo</h2>
+      <p>Não é necessário decorar cada teste. Eles registram o contrato que a implementação deve preservar:</p>
+      <ul>
+        <li>Bootstrap ausente ou desabilitado não cria usuário.</li>
+        <li>Configuração inválida causa fail-fast sem revelar valores.</li>
+        <li>Configuração válida cria o administrador com a role correta.</li>
+        <li>Conta existente sem Admin não é promovida.</li>
+        <li>Execuções repetidas não duplicam a conta.</li>
+        <li>Falhas do Identity divulgam apenas códigos seguros.</li>
+        <li>Falha ao adicionar a role aciona a compensação.</li>
+        <li>Concorrência termina de maneira limitada e nunca promove o usuário observado.</li>
+      </ul>
+      <p>Estrutura mental suficiente:</p>
+      <pre><code>Arrange → preparar configuração e estado
+Act     → inicializar a aplicação
+Assert  → verificar o comportamento esperado</code></pre>
+    </section>
+
+    <section id="quiz">
+      <h2>9. Quiz interativo</h2>
+      <p>Escolha uma opção em cada questão. A explicação aparece imediatamente.</p>
+
+      <div class="score-card" aria-live="polite">
+        <strong id="score">Pontuação: 0/0</strong>
+        <button class="reset" id="reset" type="button">Reiniciar quiz</button>
+      </div>
+
+      <div class="question" data-answer="1">
+        <p>1. Qual componente cria e verifica as roles?</p>
+        <div class="options">
+          <button type="button">UserManager</button>
+          <button type="button">RoleManager</button>
+          <button type="button">Garbage Collector</button>
+        </div>
+        <div class="feedback">O <code>RoleManager</code> administra as roles. O <code>UserManager</code> administra usuários e suas associações.</div>
+      </div>
+
+      <div class="question" data-answer="2">
+        <p>2. O que o <code>using</code> faz com o escopo?</p>
+        <div class="options">
+          <button type="button">Apaga imediatamente toda a memória do processo</button>
+          <button type="button">Transforma as dependências em singletons</button>
+          <button type="button">Chama Dispose ao final e libera os recursos do escopo</button>
+        </div>
+        <div class="feedback">O <code>using</code> garante <code>Dispose()</code>. A memória comum continua sendo responsabilidade do Garbage Collector.</div>
+      </div>
+
+      <div class="question" data-answer="1">
+        <p>3. Por que verificar novamente se a role existe após uma falha de criação?</p>
+        <div class="options">
+          <button type="button">Porque await não espera a operação terminar</button>
+          <button type="button">Porque outra instância pode ter criado a role simultaneamente</button>
+          <button type="button">Porque toda role precisa ser criada duas vezes</button>
+        </div>
+        <div class="feedback">O <code>await</code> espera. A segunda consulta trata uma possível corrida entre instâncias.</div>
+      </div>
+
+      <div class="question" data-answer="2">
+        <p>4. Uma conta existente com o email configurado não possui Admin. O que fazer?</p>
+        <div class="options">
+          <button type="button">Promover automaticamente</button>
+          <button type="button">Apagar sem consultar ninguém</button>
+          <button type="button">Falhar e exigir investigação humana</button>
+        </div>
+        <div class="feedback">A promoção automática seria elevação de privilégios. O bootstrap falha de forma conservadora.</div>
+      </div>
+
+      <div class="question" data-answer="0">
+        <p>5. O que significa <code>bootstrapAdminPassword!</code>?</p>
+        <div class="options">
+          <button type="button">Suprime o aviso de nulabilidade do compilador</button>
+          <button type="button">Valida a senha em runtime</button>
+          <button type="button">Inverte o conteúdo da senha</button>
+        </div>
+        <div class="feedback">O operador pós-fixo informa confiança ao compilador; a validação real ocorreu antes.</div>
+      </div>
+
+      <div class="question" data-answer="1">
+        <p>6. Um resultado possui <code>DuplicateEmail</code> e <code>PasswordTooShort</code>. Deve iniciar retry?</p>
+        <div class="options">
+          <button type="button">Sim, porque existe um erro de duplicidade</button>
+          <button type="button">Não, porque nem todos os erros são duplicidades</button>
+          <button type="button">Sim, porque esperar corrige senhas fracas</button>
+        </div>
+        <div class="feedback"><code>errors.All(...)</code> exige somente erros de duplicidade. Esperar não corrige uma senha inválida.</div>
+      </div>
+
+      <div class="question" data-answer="2">
+        <p>7. Dez consultas com nove intervalos de 100 ms produzem qual espera planejada?</p>
+        <div class="options">
+          <button type="button">100 ms</button>
+          <button type="button">1.000 ms exatos</button>
+          <button type="button">Aproximadamente 900 ms, além do tempo das consultas</button>
+        </div>
+        <div class="feedback">Não há espera após a última consulta: <code>9 × 100 ms = 900 ms</code>. As consultas também consomem tempo.</div>
+      </div>
+
+      <div class="question" data-answer="1">
+        <p>8. Quando o retry concorrente retorna <code>true</code>?</p>
+        <div class="options">
+          <button type="button">Quando o usuário existe ou possui qualquer role</button>
+          <button type="button">Quando o usuário existe e já possui Admin</button>
+          <button type="button">Quando o próprio retry promove o usuário</button>
+        </div>
+        <div class="feedback">As condições usam <code>&amp;&amp;</code>: o usuário precisa existir e já estar na role <code>Admin</code>.</div>
+      </div>
+
+      <div class="question" data-answer="0">
+        <p>9. A limpeza funcionou após a falha de AddToRole. O startup deve continuar?</p>
+        <div class="options">
+          <button type="button">Não; o estado foi reparado, mas o bootstrap não concluiu</button>
+          <button type="button">Sim; apagar o usuário equivale a criar o Admin</button>
+          <button type="button">Sim; erros de role não afetam autorização</button>
+        </div>
+        <div class="feedback">A compensação evita o estado parcial, mas o administrador não foi criado. O startup deve falhar.</div>
+      </div>
+
+      <div class="question" data-answer="2">
+        <p>10. Por que registrar apenas <code>error.Code</code>?</p>
+        <div class="options">
+          <button type="button">Porque códigos nunca precisam de tratamento</button>
+          <button type="button">Porque Description não existe no Identity</button>
+          <button type="button">Para obter diagnóstico objetivo e reduzir exposição de detalhes sensíveis</button>
+        </div>
+        <div class="feedback">Os códigos são suficientes para o diagnóstico esperado. Descrições podem mudar ou conter detalhes desnecessários.</div>
+      </div>
+
+      <div class="final-result" id="final-result" aria-live="polite"></div>
+    </section>
+
+    <section>
+      <h2>Resumo de bolso</h2>
+      <details>
+        <summary>Abrir resumo em dez frases</summary>
+        <ol>
+          <li>O escopo permite usar corretamente dependências de vida curta no startup.</li>
+          <li><code>RoleManager</code> administra roles; <code>UserManager</code> administra usuários.</li>
+          <li>O <code>using</code> garante a liberação determinística do escopo.</li>
+          <li>Uma segunda consulta diferencia falha real de corrida entre instâncias.</li>
+          <li>Conta existente sem Admin nunca é promovida pelo bootstrap.</li>
+          <li>O <code>!</code> pós-fixo não valida valores; apenas silencia a nulabilidade.</li>
+          <li>O retry só aceita falhas compostas exclusivamente por duplicidades.</li>
+          <li>O concorrente precisa existir e já possuir Admin.</li>
+          <li>Falha de role tenta compensar removendo o usuário recém-criado.</li>
+          <li>Mensagens expõem códigos, não senhas ou descrições desnecessárias.</li>
+        </ol>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <p>Material local e offline do BarberApp API. Nenhuma credencial real está incluída.</p>
+  </footer>
+
+  <script>
+    const questions = [...document.querySelectorAll(".question")];
+    const scoreElement = document.querySelector("#score");
+    const resultElement = document.querySelector("#final-result");
+    const resetButton = document.querySelector("#reset");
+    let answered = 0;
+    let correct = 0;
+
+    function updateScore() {
+      scoreElement.textContent = `Pontuação: ${correct}/${answered}`;
+
+      if (answered === questions.length) {
+        const percent = Math.round((correct / questions.length) * 100);
+        let message = "Continue revisando os pontos que errou.";
+
+        if (percent === 100) {
+          message = "Excelente: você dominou os conceitos desta parte.";
+        } else if (percent >= 80) {
+          message = "Muito bom: revise apenas os detalhes restantes.";
+        } else if (percent >= 60) {
+          message = "Bom começo: releia as seções ligadas aos erros.";
+        }
+
+        resultElement.textContent = `${correct} de ${questions.length} — ${percent}%. ${message}`;
+        resultElement.classList.add("visible");
+      }
+    }
+
+    questions.forEach((question) => {
+      const buttons = [...question.querySelectorAll("button")];
+      const feedback = question.querySelector(".feedback");
+      const answer = Number(question.dataset.answer);
+
+      buttons.forEach((button, index) => {
+        button.addEventListener("click", () => {
+          if (question.dataset.answered === "true") return;
+
+          question.dataset.answered = "true";
+          answered += 1;
+
+          buttons.forEach((item, itemIndex) => {
+            item.disabled = true;
+            if (itemIndex === answer) item.classList.add("correct");
+          });
+
+          if (index === answer) {
+            correct += 1;
+          } else {
+            button.classList.add("incorrect");
+          }
+
+          feedback.classList.add("visible");
+          updateScore();
+        });
+      });
+    });
+
+    resetButton.addEventListener("click", () => {
+      answered = 0;
+      correct = 0;
+      resultElement.classList.remove("visible");
+      resultElement.textContent = "";
+
+      questions.forEach((question) => {
+        delete question.dataset.answered;
+        question.querySelector(".feedback").classList.remove("visible");
+        question.querySelectorAll("button").forEach((button) => {
+          button.disabled = false;
+          button.classList.remove("correct", "incorrect");
+        });
+      });
+
+      updateScore();
+      document.querySelector("#quiz").scrollIntoView({ behavior: "smooth" });
+    });
+
+    updateScore();
+  </script>
+</body>
+</html>

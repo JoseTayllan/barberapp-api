@@ -21,6 +21,10 @@ namespace BarberApp.Domain.Entities
 
         public DisponibilidadeBarbeiro(Guid barbeiroId, DiaSemana diaSemana, TimeSpan horaInicio, TimeSpan horaFim)
         {
+            if (!Enum.IsDefined(diaSemana))
+                throw new ArgumentException("Dia da semana inválido.", nameof(diaSemana));
+
+            ValidarIntervalo(horaInicio, horaFim);
             BarbeiroId = barbeiroId;
             DiaSemana = diaSemana;
             HoraInicio = horaInicio;
@@ -29,10 +33,17 @@ namespace BarberApp.Domain.Entities
 
         public void Atualizar(TimeSpan horaInicio, TimeSpan horaFim, bool ativo)
         {
+            ValidarIntervalo(horaInicio, horaFim);
             HoraInicio = horaInicio;
             HoraFim = horaFim;
             Ativo = ativo;
             AtualizadoEm  = DateTime.UtcNow;
+        }
+
+        private static void ValidarIntervalo(TimeSpan horaInicio, TimeSpan horaFim)
+        {
+            if (horaInicio < TimeSpan.Zero || horaInicio >= horaFim || horaFim > TimeSpan.FromDays(1))
+                throw new ArgumentException("O intervalo deve estar dentro do dia, com início anterior ao fim.");
         }
         
     }

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 05 — Tokens protegidos e persistência</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2 { color: #a8c8ff; line-height: 1.3; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    a { color: #a8c8ff; }
+  </style>
+</head>
+<body><main>
+  <h1>Tokens protegidos antes de dizer “Conectado”</h1>
+  <p>05/10/2026 — GREEN técnico: 125 testes aprovados, incluindo PostgreSQL isolado. Nenhuma conta real ou cobrança. Diff aguarda revisão; checkout, renovação e desconexão ainda não estão prontos.</p>
+  <section>
+    <h2>Hash não substitui criptografia</h2>
+    <p>O PKCE usa SHA-256 para produzir um challenge: não precisamos recuperar o verifier a partir do hash. Já o access token precisa ser recuperável para futuras chamadas ao provedor. Por isso ele é criptografado, não apenas hasheado.</p>
+    <p>Data Protection protege o JSON com access e refresh token. O repositório recebe somente o resultado protegido. O banco não contém colunas com os tokens originais; a resposta do callback contém apenas status.</p>
+  </section>
+  <section>
+    <h2>O que é o propósito?</h2>
+    <p><code>BarberApp.MercadoPago.Tokens.v1</code> identifica o contexto de proteção. O mesmo provider com outro propósito não consegue abrir o conteúdo: isso evita reutilizar acidentalmente uma credencial protegida em outro fluxo.</p>
+    <p>Propósito não é senha e pode ser versionado. A chave é secreta, gerenciada fora do banco/repositório. Não apague chaves antigas nem presuma que trocar máquina, usuário ou configuração mantém a leitura das credenciais.</p>
+    <p>Em Windows com perfil disponível, o padrão usa DPAPI para proteger as chaves em disco. Linux e hospedagem exigem planejamento específico. Nos testes, o provider é efêmero: prova a proteção do conteúdo, não recuperação após reinício ou backup.</p>
+  </section>
+  <section>
+    <h2>Scoped e singleton trabalhando juntos</h2>
+    <p>O store de tentativas permanece singleton e compartilha um lock para consumir state uma vez. O serviço de conexão passa a scoped, assim como repositório e DbContext. Cada requisição recebe seu próprio contexto de banco, sem capturá-lo dentro de um singleton.</p>
+    <p>O cliente HTTP dedicado usa URL fixa, timeout de dez segundos e não segue redirects. A falha externa é traduzida em código seguro, sem reproduzir o body do provedor.</p>
+  </section>
+  <section>
+    <h2>Uma linha recebedora por instalação</h2>
+    <p>A entidade tem Id=1; a tabela tem chave primária e CHECK exigindo esse valor. Uma nova conexão substitui a existente, não cria uma conta por barbeiro ou Admin. ContaId é o identificador da conta no provedor, não o Id da instalação.</p>
+    <p>A constraint impede duas linhas, mas não decide qual reconexão concorrente deve vencer. Essa coordenação ainda é um risco a resolver antes de pagamentos reais.</p>
+    <p>SaveChangesAsync termina antes do status Conectado. Se criptografia, escrita ou driver falharem, o callback devolve 503 com título seguro. Não há retry cego do código OAuth.</p>
+  </section>
+  <section>
+    <h2>Por que testar dois bancos?</h2>
+    <p>InMemory permite testar HTTP, proteção e falhas sem dependência externa. Ele não aplica as constraints PostgreSQL. O teste relacional migra um banco WSL isolado, grava ciphertext e confirma que Id=2 é rejeitado pelo servidor.</p>
+    <p>Um erro da fixture revelou que usar Guid.NewGuid dentro da criação das opções gera outro banco a cada escopo. A correção fixa um nome por teste, compartilhado entre requisição e leitura de verificação. Não enfraquecemos a asserção de persistência.</p>
+    <p>Os dados do teste PostgreSQL são revertidos por transação; o schema de teste permanece. A migration não foi aplicada ao banco real. Sua reversão apaga a tabela: nunca executá-la com credenciais existentes sem backup e aprovação.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que não guardar só o SHA-256 do access token?</summary><p>Porque precisamos recuperar o token para enviá-lo ao provedor. Hash é unidirecional; proteção criptográfica com chave permite recuperação autorizada.</p></details>
+    <details><summary>2. A criptografia no banco basta para produção?</summary><p>Não. É necessário proteger e persistir as chaves, restringir acesso, planejar backup/recuperação, evitar vazamento em logs e implementar renovação/revogação.</p></details>
+    <details><summary>3. Por que o serviço deixou de ser singleton?</summary><p>Ele passou a depender de repositório e DbContext scoped. O lock compartilhado foi separado em um store singleton, preservando consumo único sem compartilhar DbContext entre requisições.</p></details>
+    <details><summary>4. O que acontece se o provedor emitir tokens, mas a gravação falhar?</summary><p>A API não declara conexão, não devolve tokens e a tentativa já foi consumida. Pode ser necessário revogar a autorização no provedor e começar novamente; compensação/revogação automática ainda não existe.</p></details>
+    <details><summary>5. Como provar que a proteção não é apenas uma string diferente?</summary><p>O teste recupera o conteúdo com o propósito correto e confere os tokens fictícios. Com propósito errado, a operação deve lançar CryptographicException.</p></details>
+    <details><summary>6. Por que não aceitar um teste verde sem PostgreSQL?</summary><p>Ele não prova que a migration ou CHECK funcionem no provedor real. O teste relacional é ignorado quando o ambiente não é configurado; esse skip deve ser informado, não escondido.</p></details>
+    <details><summary>7. Conectado significa que o cliente já pode pagar de verdade?</summary><p>Não. É apenas o resultado da conexão OAuth persistida. Preferências Checkout Pro, webhook, atualização segura do pagamento e jornadas do frontend ainda precisam ser implementados e testados.</p></details>
+  </section>
+  <p><a href="https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/default-settings?view=aspnetcore-10.0">Referência Microsoft: chaves Data Protection</a></p>
+</main></body>
+</html>

@@ -19,12 +19,23 @@ namespace BarberApp.Infrastructure.Data
         public DbSet<Servico> Servicos => Set<Servico>();
         public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
         public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
+        public DbSet<ConexaoMercadoPago> ConexoesMercadoPago => Set<ConexaoMercadoPago>();
         public DbSet<DisponibilidadeBarbeiro> DisponibilidadesBarbeiros => Set<DisponibilidadeBarbeiro>();
 
         public DbSet< ExcecaoAgenda> ExcecoesAgenda => Set<ExcecaoAgenda>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder); // importante — inicializa tabelas do Identity
+
+            modelBuilder.Entity<ConexaoMercadoPago>(e =>
+            {
+                e.ToTable("ConexoesMercadoPago", table =>
+                    table.HasCheckConstraint("CK_ConexoesMercadoPago_UnicaInstalacao", "\"Id\" = 1"));
+                e.HasKey(c => c.Id);
+                e.Property(c => c.Id).ValueGeneratedNever();
+                e.Property(c => c.AdministradorId).IsRequired().HasMaxLength(450);
+                e.Property(c => c.TokensProtegidos).IsRequired();
+            });
 
             // Barbeiro
             modelBuilder.Entity<Barbeiro>(e =>

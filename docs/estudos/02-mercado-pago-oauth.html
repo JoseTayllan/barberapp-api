@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 02 — Conta recebedora e OAuth</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1 { line-height: 1.2; color: #a8c8ff; }
+    h2 { color: #a8c8ff; font-size: 1.25rem; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    a { color: #a8c8ff; }
+    .status { background: #45351c; padding: 14px; border-radius: 10px; }
+  </style>
+</head>
+<body><main>
+  <h1>Estudo 02: conectar a conta do dono</h1>
+  <p>Uma barbearia por instalação, uma conta recebedora e nenhuma divisão automática entre profissionais.</p>
+  <p class="status">Este capítulo registra o primeiro incremento: início da autorização após RED válido no WSL (14 falhas esperadas, 1 aprovado), seguido de 74 testes aprovados. Callback e armazenamento protegido foram implementados depois; veja o <a href="05-protecao-de-tokens-e-persistencia.html">capítulo 5</a>. Cobrança real continua pendente.</p>
+  <section>
+    <h2>OAuth: autorizar acesso</h2>
+    <p>O dono acessa a página oficial do Mercado Pago e autoriza o BarberApp. Ele informa sua senha ao provedor. Nossa API recebe um código temporário e o troca, no servidor, por tokens de acesso.</p>
+    <p>Conectar a conta define quem recebe. Abrir o Checkout Pro define como o cliente paga. São fluxos distintos.</p>
+  </section>
+  <section>
+    <h2>State: identificar a tentativa</h2>
+    <p>A API gera um valor aleatório por tentativa. Quando o provedor retorna, o callback precisa demonstrar que aquele retorno corresponde a uma solicitação válida, ainda não expirada e não utilizada.</p>
+    <p>Não basta aceitar qualquer code recebido. Isso pode vincular uma conta diferente da que o administrador pretendia conectar.</p>
+  </section>
+  <section>
+    <h2>PKCE: proteger a troca do código</h2>
+    <p>O servidor guarda um segredo temporário chamado verifier. Na URL de autorização envia somente o challenge: SHA-256 do verifier, codificado em Base64URL. Na troca do código, apresenta o verifier original.</p>
+    <p>O verifier não deve aparecer na resposta enviada ao navegador nem na URL OAuth. PKCE complementa state; eles protegem aspectos diferentes do fluxo.</p>
+  </section>
+  <section>
+    <h2>Quem pode conectar?</h2>
+    <p>API key identifica o consumidor; JWT identifica o usuário; role Admin permite a ação. O identificador do usuário associa a tentativa a quem a iniciou.</p>
+    <p>O endpoint proposto devolve URL e expiração. Ele não devolve tokens nem confirma que a conta já foi conectada. O cabeçalho no-store evita cache da resposta sensível.</p>
+  </section>
+  <section>
+    <h2>Checkout e confirmação</h2>
+    <p>O cliente será levado ao Checkout Pro para escolher entre os meios disponíveis. O valor deve vir do agendamento no banco. Uma tela de sucesso não é comprovação suficiente: o servidor deve verificar o estado com o Mercado Pago.</p>
+    <p>Sandbox usa recursos de teste. Os testes automatizados usam respostas controladas e não cobram dinheiro real.</p>
+  </section>
+  <section>
+    <h2>Exercícios</h2>
+    <details><summary>1. O dono precisa entregar sua senha do Mercado Pago ao BarberApp?</summary><p>Não. No OAuth, ele autentica diretamente no provedor e concede acesso limitado. Nosso servidor recebe tokens após validar o retorno.</p></details>
+    <details><summary>2. Qual a diferença entre state e PKCE?</summary><p>State relaciona o retorno à tentativa iniciada e ajuda a prevenir vinculação indevida. PKCE protege a troca do código, exigindo o verifier correspondente ao challenge.</p></details>
+    <details><summary>3. Por que não aceitar RedirectUri enviado pelo navegador?</summary><p>O retorno precisa ser estático e controlado pelo servidor, correspondendo ao cadastro no provedor. Uma entrada livre permitiria redirecionar dados para destinos indevidos.</p></details>
+    <details><summary>4. Gerar a URL significa que a conta já está conectada?</summary><p>Não. Faltam consentimento, callback válido, troca de código e armazenamento seguro dos tokens.</p></details>
+    <details><summary>5. O dinheiro será dividido entre barbeiros?</summary><p>Não. A única conta recebedora é a do dono. O repasse aos profissionais é administrado por ele fora do BarberApp.</p></details>
+    <details><summary>6. Qual evidência permite avançar do teste para a implementação?</summary><p>O RED funcional: os testes precisam executar e falhar devido à ausência do comportamento esperado. Bloqueio de DLL não é esse RED. Obtivemos 14 falhas por 404 no WSL antes de criar a rota; depois, os 74 testes passaram sem mudar a especificação.</p></details>
+    <details><summary>7. Por que o verifier não aparece na URL?</summary><p>Ele é privado e fica no servidor. Enviamos somente o challenge: SHA-256 dos bytes ASCII do verifier, codificado em Base64URL. Na troca de tokens, implementada posteriormente, o servidor apresenta esse verifier ao provedor.</p></details>
+    <details><summary>8. O que acontece com a tentativa quando a API reinicia?</summary><p>Ela se perde, porque está em IMemoryCache e não no banco. O dono precisará iniciar novamente. O futuro callback deve rejeitar tentativas desconhecidas, expiradas ou já usadas, com testes escritos antes.</p></details>
+  </section>
+  <p>Referência: <a href="https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation">documentação oficial OAuth</a> (o link exige internet; o restante do material funciona offline).</p>
+</main></body>
+</html>

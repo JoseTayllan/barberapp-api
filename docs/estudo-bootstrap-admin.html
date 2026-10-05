@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Guia de estudo — Bootstrap seguro do administrador</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --background: #f4f7fb;
+      --surface: #ffffff;
+      --surface-soft: #eef5ff;
+      --text: #182230;
+      --muted: #5e6b7a;
+      --primary: #175cd3;
+      --primary-dark: #123f91;
+      --border: #d7e0eb;
+      --success: #087443;
+      --warning: #9a5b00;
+      --code-background: #111827;
+      --code-text: #e5eefb;
+      --shadow: 0 12px 32px rgba(31, 42, 55, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+    }
+
+    header {
+      padding: 3rem 1.25rem 2.5rem;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0c2f70, #175cd3 58%, #3b82f6);
+    }
+
+    header .content,
+    main,
+    footer {
+      width: min(100% - 2rem, 820px);
+      margin-inline: auto;
+    }
+
+    .eyebrow {
+      margin: 0 0 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 8vw, 3.4rem);
+      line-height: 1.05;
+    }
+
+    header p:last-child {
+      max-width: 640px;
+      margin: 1rem 0 0;
+      font-size: 1.05rem;
+      opacity: 0.92;
+    }
+
+    main {
+      padding-block: 1.5rem 4rem;
+    }
+
+    nav,
+    section {
+      margin-top: 1rem;
+      padding: 1.3rem;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    nav ul {
+      display: grid;
+      gap: 0.55rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    nav a {
+      color: var(--primary);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    h2 {
+      margin: 0 0 0.8rem;
+      font-size: 1.45rem;
+      line-height: 1.25;
+    }
+
+    h3 {
+      margin: 1.5rem 0 0.45rem;
+      font-size: 1.1rem;
+    }
+
+    p,
+    ul,
+    ol {
+      margin-top: 0.65rem;
+      margin-bottom: 0.65rem;
+    }
+
+    li + li {
+      margin-top: 0.45rem;
+    }
+
+    code {
+      padding: 0.12rem 0.35rem;
+      border-radius: 6px;
+      background: #e8eef8;
+      color: #173b70;
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 1rem 0;
+      padding: 1rem;
+      border-radius: 12px;
+      background: var(--code-background);
+      color: var(--code-text);
+      font-size: 0.85rem;
+      line-height: 1.55;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    .callout {
+      margin: 1rem 0;
+      padding: 1rem;
+      border-left: 5px solid var(--primary);
+      border-radius: 10px;
+      background: var(--surface-soft);
+    }
+
+    .callout strong {
+      color: var(--primary-dark);
+    }
+
+    .warning {
+      border-left-color: var(--warning);
+      background: #fff7e8;
+    }
+
+    .warning strong {
+      color: var(--warning);
+    }
+
+    .success {
+      border-left-color: var(--success);
+      background: #eafaf2;
+    }
+
+    .success strong {
+      color: var(--success);
+    }
+
+    .flow {
+      display: grid;
+      gap: 0.45rem;
+      margin: 1rem 0;
+      text-align: center;
+      font-weight: 750;
+    }
+
+    .flow span {
+      padding: 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-soft);
+    }
+
+    .flow i {
+      color: var(--primary);
+      font-style: normal;
+    }
+
+    table {
+      width: 100%;
+      margin: 1rem 0;
+      border-collapse: collapse;
+      font-size: 0.94rem;
+    }
+
+    th,
+    td {
+      padding: 0.72rem;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-soft);
+    }
+
+    details {
+      margin-top: 0.8rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fbfcfe;
+    }
+
+    summary {
+      color: var(--primary-dark);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .checklist {
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .checklist li::before {
+      content: "□";
+      margin-right: 0.6rem;
+      color: var(--primary);
+      font-weight: 900;
+    }
+
+    footer {
+      padding: 0 0 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      body {
+        font-size: 16px;
+      }
+
+      header {
+        padding-top: 2.3rem;
+      }
+
+      nav,
+      section {
+        padding: 1rem;
+        border-radius: 14px;
+      }
+
+      th,
+      td {
+        padding: 0.55rem;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        color-scheme: dark;
+        --background: #0c111b;
+        --surface: #151d29;
+        --surface-soft: #182942;
+        --text: #e5edf7;
+        --muted: #a8b4c3;
+        --primary: #78aafc;
+        --primary-dark: #a9c8ff;
+        --border: #2d3b4e;
+        --success: #6ee7a8;
+        --warning: #f7c66b;
+        --shadow: none;
+      }
+
+      code {
+        background: #20314b;
+        color: #cfe0ff;
+      }
+
+      .warning {
+        background: #332713;
+      }
+
+      .success {
+        background: #102d23;
+      }
+
+      details {
+        background: #111925;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="content">
+      <p class="eyebrow">BarberApp API · aprendizado ativo</p>
+      <h1>Bootstrap seguro do administrador</h1>
+      <p>Material de revisão para estudar no celular. Leia devagar, tente responder aos exercícios sem abrir as respostas e questione cada decisão.</p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="Índice do estudo">
+      <h2>Roteiro</h2>
+      <ul>
+        <li><a href="#objetivo">1. Objetivo do bootstrap</a></li>
+        <li><a href="#tempo">2. Compilação × inicialização</a></li>
+        <li><a href="#configuracao">3. Variáveis de ambiente</a></li>
+        <li><a href="#validacao">4. Validação e fail-fast</a></li>
+        <li><a href="#escopo">5. Escopo, RoleManager e UserManager</a></li>
+        <li><a href="#fluxo">6. Fluxo completo</a></li>
+        <li><a href="#seguranca">7. Decisões de segurança</a></li>
+        <li><a href="#exercicios">8. Exercícios</a></li>
+        <li><a href="#proximos">9. Próximos assuntos</a></li>
+      </ul>
+    </nav>
+
+    <section id="objetivo">
+      <h2>1. Objetivo do bootstrap</h2>
+      <p>O bootstrap cria o primeiro administrador da aplicação de forma controlada. Ele não é endpoint e não deve permanecer habilitado para administrar usuários no dia a dia.</p>
+      <div class="callout success">
+        <strong>Ideia central:</strong> habilitar temporariamente, criar o administrador inicial, confirmar a role <code>Admin</code> e então desabilitar o bootstrap e remover os valores sensíveis do ambiente.
+      </div>
+      <p>As roles <code>Admin</code>, <code>Barbeiro</code> e <code>Cliente</code> continuam sendo verificadas mesmo quando a criação do administrador está desabilitada.</p>
+    </section>
+
+    <section id="tempo">
+      <h2>2. Compilação × inicialização</h2>
+      <p>Compilar e executar são etapas diferentes:</p>
+      <div class="flow" aria-label="Fluxo da aplicação">
+        <span>Compilar o código</span>
+        <i>↓</i>
+        <span>Executar o Program.cs</span>
+        <i>↓</i>
+        <span>Ler as configurações</span>
+        <i>↓</i>
+        <span>Validar e consultar o banco</span>
+        <i>↓</i>
+        <span>Aceitar requisições HTTP</span>
+      </div>
+      <p>Na compilação, o C# verifica tipos e produz o programa. As variáveis de ambiente são lidas e o usuário é procurado no banco somente quando a aplicação está sendo executada e inicializada.</p>
+      <div class="callout warning">
+        <strong>Atenção:</strong> os aproximadamente 900 ms não são tempo de compilação. Essa espera só pode ocorrer quando duas instâncias disputam a criação do mesmo administrador.
+      </div>
+    </section>
+
+    <section id="configuracao">
+      <h2>3. Variáveis de ambiente</h2>
+      <p>O .NET reúne várias fontes em <code>builder.Configuration</code>. Nas variáveis de ambiente, dois sublinhados representam os dois-pontos usados na chave interna:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Variável de ambiente</th>
+            <th>Chave no .NET</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>BootstrapAdmin__Enabled</code></td>
+            <td><code>BootstrapAdmin:Enabled</code></td>
+          </tr>
+          <tr>
+            <td><code>BootstrapAdmin__NomeCompleto</code></td>
+            <td><code>BootstrapAdmin:NomeCompleto</code></td>
+          </tr>
+          <tr>
+            <td><code>BootstrapAdmin__Email</code></td>
+            <td><code>BootstrapAdmin:Email</code></td>
+          </tr>
+          <tr>
+            <td><code>BootstrapAdmin__Password</code></td>
+            <td><code>BootstrapAdmin:Password</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <pre><code>var bootstrapAdminEmail = bootstrapAdminEnabled
+    ? GetRequiredConfiguration(
+        builder.Configuration,
+        "BootstrapAdmin:Email")
+    : null;</code></pre>
+      <p>O operador ternário pode ser lido assim: “se o bootstrap estiver habilitado, leia e valide o email; caso contrário, use <code>null</code>”.</p>
+    </section>
+
+    <section id="validacao">
+      <h2>4. Validação e fail-fast</h2>
+      <pre><code>static bool GetBootstrapAdminEnabled(IConfiguration configuration)
+{
+    const string key = "BootstrapAdmin:Enabled";
+    var value = configuration[key];
+
+    if (value is null)
+    {
+        return false;
+    }
+
+    if (string.IsNullOrWhiteSpace(value) ||
+        !bool.TryParse(value, out var enabled))
+    {
+        throw new InvalidOperationException(
+            $"A configuração '{key}' deve ser um booleano válido.");
+    }
+
+    return enabled;
+}</code></pre>
+      <table>
+        <thead>
+          <tr>
+            <th>Valor</th>
+            <th>Comportamento no startup</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Variável ausente</td><td>Retorna <code>false</code>; bootstrap desabilitado.</td></tr>
+          <tr><td><code>"false"</code></td><td>Conversão válida; bootstrap desabilitado.</td></tr>
+          <tr><td><code>"true"</code></td><td>Conversão válida; bootstrap habilitado.</td></tr>
+          <tr><td>Vazio ou espaços</td><td>Configuração inválida; aplicação não inicia.</td></tr>
+          <tr><td><code>"sim"</code> ou <code>"1"</code></td><td>Conversão inválida; aplicação não inicia.</td></tr>
+        </tbody>
+      </table>
+      <h3>Os dois resultados de TryParse</h3>
+      <pre><code>var conseguiuConverter =
+    bool.TryParse("sim", out var enabled);
+
+// conseguiuConverter == false
+// enabled == false</code></pre>
+      <p><code>conseguiuConverter</code> informa se o texto era um booleano válido. Já <code>enabled</code> contém o valor convertido. Como <code>"sim"</code> não é válido, o código lança uma exceção em vez de desabilitar silenciosamente.</p>
+      <div class="callout">
+        <strong>Fail-fast:</strong> configuração errada deve ser detectada imediatamente. Isso evita que a aplicação pareça saudável enquanto executa com uma intenção diferente da configurada.
+      </div>
+    </section>
+
+    <section id="escopo">
+      <h2>5. Escopo, RoleManager e UserManager</h2>
+      <pre><code>using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider
+        .GetRequiredService&lt;RoleManager&lt;IdentityRole&gt;&gt;();
+
+    var userManager = scope.ServiceProvider
+        .GetRequiredService&lt;UserManager&lt;ApplicationUser&gt;&gt;();
+}</code></pre>
+      <ul>
+        <li><code>CreateScope()</code> cria um escopo temporário de dependências durante a inicialização.</li>
+        <li><code>RoleManager</code> verifica e cria roles.</li>
+        <li><code>UserManager</code> procura, cria, remove usuários e administra suas roles.</li>
+        <li><code>GetRequiredService</code> exige que a dependência esteja registrada; se não estiver, a inicialização falha.</li>
+        <li>O <code>using</code> libera o escopo e seus recursos ao terminar.</li>
+      </ul>
+      <p>Esse escopo é manual porque ainda não existe uma requisição HTTP. Em uma requisição normal, o ASP.NET Core criaria e encerraria o escopo automaticamente.</p>
+    </section>
+
+    <section id="fluxo">
+      <h2>6. Fluxo completo</h2>
+      <ol>
+        <li>A aplicação lê <code>BootstrapAdmin:Enabled</code>.</li>
+        <li>Se estiver habilitado, exige nome, email e senha.</li>
+        <li>Cria um escopo temporário.</li>
+        <li>Verifica as roles <code>Admin</code>, <code>Barbeiro</code> e <code>Cliente</code>.</li>
+        <li>Procura o email configurado com <code>FindByEmailAsync</code>.</li>
+        <li>Se o usuário não existir, cria com <code>CreateAsync</code>.</li>
+        <li>Associa a role <code>Admin</code> com <code>AddToRoleAsync</code>.</li>
+        <li>Se a role falhar, tenta remover o usuário recém-criado como compensação.</li>
+        <li>Se outra instância estiver criando o mesmo admin, espera limitadamente pelo resultado dela sem promover a conta.</li>
+        <li>Somente depois desse startup a API começa a atender normalmente.</li>
+      </ol>
+    </section>
+
+    <section id="seguranca">
+      <h2>7. Decisões de segurança</h2>
+      <ul>
+        <li>Não existe email ou senha administrativa fixa no código.</li>
+        <li>A senha não aparece nas mensagens dos testes nem nos logs.</li>
+        <li>Erros do Identity expõem somente códigos, não descrições potencialmente sensíveis.</li>
+        <li>Uma conta existente sem a role <code>Admin</code> nunca é promovida automaticamente.</li>
+        <li>O bootstrap deve ser desabilitado após a criação inicial.</li>
+        <li>Falha de compensação pode deixar estado parcial e exige inspeção manual.</li>
+      </ul>
+      <div class="callout warning">
+        <strong>Nunca faça:</strong> colocar uma senha real neste documento, em arquivos versionados, comandos compartilhados, screenshots ou logs.
+      </div>
+    </section>
+
+    <section id="exercicios">
+      <h2>8. Exercícios</h2>
+      <p>Tente responder antes de abrir cada solução.</p>
+
+      <h3>Exercício 1</h3>
+      <p>O que acontece quando <code>BootstrapAdmin__Enabled</code> não existe?</p>
+      <details>
+        <summary>Mostrar resposta</summary>
+        <p>O método retorna <code>false</code>. O bootstrap do usuário fica desabilitado, mas a aplicação continua e ainda garante as roles.</p>
+      </details>
+
+      <h3>Exercício 2</h3>
+      <p>Por que <code>"sim"</code> não deve ser tratado silenciosamente como <code>false</code>?</p>
+      <details>
+        <summary>Mostrar resposta</summary>
+        <p>Porque pode ser um erro de quem pretendia habilitar o bootstrap. Falhar imediatamente revela a configuração incorreta e evita uma inicialização enganosa.</p>
+      </details>
+
+      <h3>Exercício 3</h3>
+      <p>Qual componente procura o usuário no banco?</p>
+      <details>
+        <summary>Mostrar resposta</summary>
+        <p>O <code>UserManager&lt;ApplicationUser&gt;</code>, usando métodos como <code>FindByEmailAsync</code>.</p>
+      </details>
+
+      <h3>Exercício 4</h3>
+      <p>Por que o bootstrap cria um escopo manual?</p>
+      <details>
+        <summary>Mostrar resposta</summary>
+        <p>Porque o startup acontece fora de uma requisição HTTP. O escopo permite usar corretamente dependências de vida curta, como os managers e o contexto do banco, e liberá-las ao final.</p>
+      </details>
+
+      <h3>Exercício 5</h3>
+      <p>Em qual momento o usuário é procurado: compilação, inicialização ou atendimento de uma requisição?</p>
+      <details>
+        <summary>Mostrar resposta</summary>
+        <p>Durante a inicialização, depois da compilação e antes de a API começar a atender requisições.</p>
+      </details>
+
+      <h3>Explique sem consultar</h3>
+      <ul class="checklist">
+        <li>Diferença entre compilar e executar.</li>
+        <li>Conversão de <code>__</code> para <code>:</code>.</li>
+        <li>Diferença entre o retorno de <code>TryParse</code> e o valor em <code>out</code>.</li>
+        <li>Significado de fail-fast.</li>
+        <li>Responsabilidades de <code>RoleManager</code> e <code>UserManager</code>.</li>
+        <li>Motivo do <code>using</code> no escopo.</li>
+      </ul>
+    </section>
+
+    <section id="proximos">
+      <h2>9. Próximos assuntos</h2>
+      <p>Na próxima sessão, continue a partir do bloco que cria as roles. A ordem sugerida é:</p>
+      <ol>
+        <li>Como <code>RoleExistsAsync</code> e <code>CreateAsync</code> trabalham juntos.</li>
+        <li>Por que todos os <code>IdentityResult</code> precisam ser verificados.</li>
+        <li>Conta inexistente, conta Admin existente e conflito com conta não Admin.</li>
+        <li>Compensação com <code>DeleteAsync</code>.</li>
+        <li>Concorrência e o retry de aproximadamente 900 ms.</li>
+        <li>Como os testes montam a aplicação e substituem dependências.</li>
+      </ol>
+      <div class="callout success">
+        <strong>Meta de aprendizado:</strong> conseguir narrar o fluxo inteiro com suas palavras antes de alterar qualquer linha.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Material local de estudo do BarberApp API. Não contém valores sensíveis reais.</p>
+  </footer>
+</body>
+</html>

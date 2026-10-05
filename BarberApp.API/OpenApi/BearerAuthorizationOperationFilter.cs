@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using BarberApp.API.Middleware;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -11,6 +12,14 @@ public sealed class BearerAuthorizationOperationFilter : IOperationFilter
         var endpointMetadata = context.ApiDescription.ActionDescriptor.EndpointMetadata;
         var allowsAnonymous = endpointMetadata.OfType<IAllowAnonymous>().Any();
         var requiresAuthorization = endpointMetadata.OfType<IAuthorizeData>().Any();
+
+        if (MercadoPagoCallbackEndpoint.IsCallback(
+            "/" + context.ApiDescription.RelativePath, context.ApiDescription.HttpMethod))
+        {
+            // O serializador omite listas vazias; um requisito vazio permite acesso sem headers.
+            operation.Security = [new OpenApiSecurityRequirement()];
+            return;
+        }
 
         if (allowsAnonymous || !requiresAuthorization)
         {

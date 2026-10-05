@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 01 — Disponibilidade e TDD</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.65; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1 { line-height: 1.2; color: #a8c8ff; }
+    h2 { color: #a8c8ff; font-size: 1.25rem; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    pre { padding: 14px; background: #0c1421; border-radius: 8px; overflow: auto; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+    a { color: #a8c8ff; }
+    .status { background: #45351c; padding: 14px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Estudo 01: disponibilidade, invariantes e TDD</h1>
+  <p>Material offline do roadmap. A implementação autônoma continua acompanhada de código explicado e exercícios para revisão.</p>
+  <p class="status">Estado real: RED confirmado; implementação escrita; build passou. GREEN confirmado pelo mantenedor: 59 testes aprovados. O ambiente do agente encontrou bloqueio da DLL pelo Windows, mas o terminal do mantenedor executou a suíte com sucesso.</p>
+  <section>
+    <h2>O problema</h2>
+    <p>A entidade de disponibilidade aceitava horários negativos, início posterior ao fim e valores fora do dia. Isso permite que outra camada construa um estado inválido, mesmo que um endpoint valide sua entrada.</p>
+    <p>Uma invariante é uma condição que deve permanecer verdadeira em todas as instâncias válidas da entidade:</p>
+    <pre><code>0 &lt;= início &lt; fim &lt;= 24 horas</code></pre>
+    <p>O dia também deve existir no enum. Converter um número para enum não garante que esse número corresponda a um membro definido.</p>
+  </section>
+  <section>
+    <h2>Teste primeiro</h2>
+    <p>Foram escritos 14 casos antes da alteração da entidade. Dez falharam porque a exceção esperada não era lançada; quatro casos válidos passaram. Esse RED mostra a ausência da regra.</p>
+    <pre><code>Assert.Throws&lt;ArgumentException&gt;(() =&gt;
+    disponibilidade.Atualizar(inícioInválido, fim, false));</code></pre>
+    <p>O teste também verifica que a atualização rejeitada preserva os horários, a atividade e o timestamp anterior. Assim, não basta lançar uma exceção depois de modificar metade do objeto.</p>
+  </section>
+  <section>
+    <h2>Validar antes de atribuir</h2>
+    <pre><code>ValidarIntervalo(horaInicio, horaFim);
+HoraInicio = horaInicio;
+HoraFim = horaFim;
+Ativo = ativo;</code></pre>
+    <p>O construtor e a atualização compartilham a mesma validação. Essa ordem mantém o estado anterior se a entrada for rejeitada. Não houve mudança de schema nem rota.</p>
+    <p>O limite de 24h significa final do dia. Um intervalo que começa às 23h e termina às 24h é válido. Um intervalo que atravessa para o dia seguinte continua rejeitado nesta regra.</p>
+  </section>
+  <section>
+    <h2>O que cada suíte demonstra</h2>
+    <p>O teste unitário executa a entidade isolada, sem banco ou HTTP. O teste de integração verifica o comportamento da aplicação. Os dois são necessários: uma entidade correta não garante que a API devolva o status esperado.</p>
+    <p>Um build verde demonstra compilação. Para declarar GREEN, precisamos executar os testes e observar as asserções passarem.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que validar no domínio se o endpoint já valida?</summary><p>Porque a entidade também pode ser criada por services, jobs, testes ou outros caminhos. A invariante precisa proteger o estado independentemente da origem.</p></details>
+    <details><summary>2. Atualizar horários antes de validar causa qual risco?</summary><p>Uma exceção pode deixar o objeto parcialmente alterado. Validar antes preserva o estado anterior quando a entrada é inválida.</p></details>
+    <details><summary>3. O que demonstra o RED desta etapa?</summary><p>Que a entidade aceitava entradas inválidas: os testes esperavam exceções e nenhuma foi lançada. Os testes compilaram e executaram, portanto era uma falha comportamental válida.</p></details>
+    <details><summary>4. Um FileLoadException do Windows pode ser considerado RED funcional?</summary><p>Não. Ele impede executar o código. É falha de ambiente, que precisa ser resolvida antes de avaliar a regra.</p></details>
+    <details><summary>5. (DiaSemana)7 garante um dia válido?</summary><p>Não. O cast cria um valor numérico do enum, mesmo sem membro correspondente. Enum.IsDefined confirma se o valor está definido.</p></details>
+    <details><summary>6. Build passou. Podemos declarar a alteração concluída?</summary><p>Não. Ainda precisamos confirmar os testes, revisar o diff e informar os riscos. Neste incremento, o GREEN está pendente.</p></details>
+  </section>
+  <p>Próximo estudo: consulta por ID e autorização, seguido de sobreposição entre agendamentos de serviços com durações diferentes.</p>
+</main>
+</body>
+</html>

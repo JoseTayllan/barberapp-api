@@ -28,6 +28,22 @@ Mesmo quando múltiplos agentes forem solicitados, eles atuam como professores, 
 
 ## Gates permanentes: qualidade, segurança e custo
 
+### Exceção autorizada — execução autônoma do roadmap
+
+Em 03/10/2026, o mantenedor autorizou implementar autonomamente o roadmap usando TDD. Durante esse trabalho, o agente pode escrever testes, confirmar RED, implementar GREEN e refatorar sem solicitar autoria manual a cada passo. Esta exceção se limita ao roadmap e não remove o propósito de aprendizado ativo nem o fluxo humano padrão descrito acima.
+
+- Cada incremento deve produzir material de estudo dividido por assunto em `docs/estudos`, com problema, decisão, exemplos, exercícios e respostas.
+- Mantenha um registro de RED/GREEN e um relatório de diff, riscos e verificações. Não enfraqueça testes para contornar erro de ambiente.
+- Apresente os incrementos para revisão; autorização de implementação não presume aprovação final, merge, publicação, rotação de credenciais ou reescrita do histórico.
+- A entrega pretendida é um MVP funcionando localmente. Hospedagem ainda não foi escolhida. O pagamento escolhido é Mercado Pago Checkout Pro, com conta do dono conectada por OAuth.
+- Decisões de produto pendentes são registradas em `ROADMAP.md`; não transforme hipóteses em recursos aprovados.
+
+### Incremento de disponibilidade — 03/10/2026
+
+Foi criado `BarberApp.UnitTests`, com xUnit e referências à Application/Domain, registrado em `BarberApp.slnx`. Execute `dotnet test BarberApp.UnitTests/BarberApp.UnitTests.csproj --no-restore` para o recorte unitário.
+
+A disponibilidade deve satisfazer `0 <= início < fim <= 24h` e usar um dia definido no enum. O limite de 24h representa o final do dia. A validação ocorre antes de modificar qualquer propriedade, preservando o estado se a atualização for rejeitada. GREEN confirmado pelo mantenedor em 03/10/2026: 59 testes aprovados, zero falhas/ignorados. O ambiente do agente encontrou bloqueio de carregamento pelo Smart App Control (`0x800711C7`); essa limitação não ocorreu no terminal do mantenedor. O diff ainda precisa de revisão final.
+
 ### Qualidade
 
 - Nenhuma mudança é considerada pronta apenas porque compila.
@@ -162,6 +178,40 @@ Fluxo esperado: o controller recebe/autoriza e delega; o service coordena o caso
 - Em disputa concorrente por email, aceite somente a conta que outra instância já concluiu como Admin. O retry atual faz até 10 consultas e nove esperas de 100 ms (aproximadamente 900 ms); ele nunca promove a conta concorrente.
 - Se vincular a role falhar após criar o usuário, tente compensar apagando o usuário. Falha retornada ou exception do provider durante o cleanup implica estado possivelmente parcial: interrompa, inspecione banco/Identity e corrija manualmente antes de tentar novamente.
 
+### Pagamentos — decisão de produto e contrato em desenvolvimento
+
+- Cada instalação atende uma única barbearia e uma única conta recebedora do dono. Não haverá split, comissões da plataforma nem repasses aos barbeiros; o dono paga os profissionais fora da aplicação.
+- Checkout Pro é a experiência escolhida. O cliente escolhe entre os meios disponibilizados pelo Mercado Pago; não garantir suporte a qualquer cartão de débito.
+- A conexão recebedora pertence à instalação, não ao barbeiro do agendamento. Somente usuário autenticado com role `Admin` inicia conexão/desconexão.
+- OAuth deve usar URL oficial fixa, `state` imprevisível, expiração, uso único e PKCE S256. O callback deve validar a tentativa antes de trocar o código por tokens. Nunca retornar `ClientSecret`, access token, refresh token ou verifier ao navegador.
+- Tokens recebidos são credenciais dinâmicas de terceiro: seu armazenamento exige proteção criptográfica/cofre e chave de proteção fora do banco. A persistência protegida foi adicionada no incremento de 05/10/2026; renovação/revogação e recuperação das chaves continuam gates antes de uso real. Nunca gravar plaintext.
+- Primeiro contrato proposto: `POST /api/integracoes/mercado-pago/autorizacao`, exige API key + JWT Admin, retorna `urlAutorizacao` e `expiraEm`, com `Cache-Control: no-store`. Configuração inválida retorna `503` sem detalhes. Ausência de identificador autenticado retorna `401`.
+- Configuração privada por `MercadoPago__ClientId`, `MercadoPago__ClientSecret` e `MercadoPago__RedirectUri`; o redirect precisa ser estático e corresponder à aplicação cadastrada no provedor. Nunca aceitar URL de redirecionamento enviada pelo cliente.
+- O início da autorização está implementado com interface/DTO em Application, serviço em Infrastructure e controller na API. RED no WSL: 14 falhas por rota inexistente e 1 aprovado. GREEN: 74 testes da solução aprovados (14 unitários + 60 integração), sem alterar a especificação OAuth. Procedimento em `docs/ambiente-wsl.md`.
+- A tentativa OAuth é temporária em `IMemoryCache`, por identificador Admin: uma nova tentativa substitui a anterior, expira em dez minutos e se perde no reinício. `TentativasMercadoPagoStore` é singleton e consome state atomicamente sob lock local. Expiração, replay, vínculo, substituição e concorrência do consumo são testados. Isso não coordena múltiplas instâncias. O pagamento/checkout ativo continua mock.
+
+### Incremento callback OAuth — em revisão
+
+- Exceção deliberada à API key: somente `GET /api/integracoes/mercado-pago/callback`, para receber o redirect externo. Não ampliar para prefixos, outros verbos ou endpoints. A autorização inicial continua exigindo API key + JWT Admin.
+- Serviço OAuth scoped usa o store singleton para consumir state atomicamente nesta instância; contexto associa state ao administrador, verifica expiração e invalida tentativa anterior ao reiniciar. Testes HTTP cobrem recusa, repetição, concorrência, expiração com relógio controlado, separação entre administradores e parâmetros ambíguos. O serviço scoped pode usar repositório/DbContext scoped sem capturar dependências de vida curta em singleton.
+- Com conexão desabilitada (padrão), código válido continua retornando `503 MercadoPagoTrocaTokenPendente` e consome a tentativa, preservando o contrato anterior. `access_denied` válido retorna `AutorizacaoRecusada`. Quando habilitada e configurada, troca e gravação protegida devem concluir antes de retornar `Conectado`. Ainda não foi validado com conta real/sandbox remoto.
+- RED: 17 falhas e 4 aprovações em 21 casos novos. A falha posterior de serialização OpenAPI foi resolvida com `security: [{}]` após aprovação explícita do mantenedor em 03/10/2026. O teste exige exatamente um requisito vazio no callback e preserva API key + Bearer na autorização. GREEN: 95 testes aprovados (14 unitários + 81 integração), zero falhas/ignorados; build sem avisos/erros. Diff final ainda deve ser revisado.
+- Não registrar queries OAuth. Código novo não adiciona logs; mantenha a restrição atual de `Microsoft.AspNetCore` a Warning. Instrumentação e proxies precisam de redaction específica antes de produção.
+
+### Troca de tokens e armazenamento protegido — 05/10/2026
+
+- Testes HTTP em `MercadoPagoTokenExchangeTests`, com `IHttpClientFactory` e handler simulados, sem rede ou credenciais reais. Os 95 testes anteriores e as 16 expectativas aprovadas dessa troca foram preservados.
+- Opt-in implementado: `MercadoPago__ConexaoEnabled=true`; ausente/false preserva `503 MercadoPagoTrocaTokenPendente`. Exige `MercadoPago__Sandbox` booleano explícito para a troca; começar com sandbox, nunca habilitar produção como efeito colateral dos testes.
+- Com conexão habilitada, usar POST JSON para `https://api.mercadopago.com/oauth/token`, grant `authorization_code`, redirect estático e o verifier correspondente ao challenge original. Em sandbox, `test_token=true`.
+- Falha HTTP externa: `502 MercadoPagoProvedorFalhou`; JSON ou campos inválidos: `502 MercadoPagoRespostaInvalida`; timeout: `503 MercadoPagoIndisponivel`. Não copiar corpo do provedor, tokens, código ou verifier para respostas/logs. Não repetir automaticamente a troca de código.
+- State deve ser validado e consumido antes da chamada externa. State desconhecido e recusa não contatam o provedor; repetição não envia novamente o código.
+- RED da troca: 16 casos, 14 falhas esperadas e 2 aprovados. RED do armazenamento: 4 falhas esperadas; RED das invariantes da entidade: 7 falhas e 1 aprovado; regressão do driver indisponível reproduzida antes da correção. GREEN com PostgreSQL isolado: 125 aprovados (22 unitários + 103 integração), zero falhas/ignorados; build sem avisos/erros. O sucesso `200 Conectado` acontece somente após criptografia e SaveChangesAsync.
+- `ConexaoMercadoPago` guarda apenas ciphertext, conta recebedora, Admin de origem, expiração UTC e sandbox. Repositório no Domain/Infrastructure, tabela `ConexoesMercadoPago`: PK fixa `Id=1` e CHECK `Id=1` impõem uma linha por instalação. Nunca adicionar colunas plaintext de access/refresh token.
+- Data Protection usa o propósito `BarberApp.MercadoPago.Tokens.v1`. Chaves geradas ficam fora do banco/repositório, no mecanismo do ambiente; os testes usam provider efêmero. Em Windows com perfil disponível, o padrão usa proteção DPAPI. Antes de sandbox remoto/produção, verificar persistência, ACL, proteção das chaves e recuperação/backup. Não presumir proteção em disco no Linux nem apagar chaves antigas; mudar identidade, ambiente ou isolamento da aplicação pode inviabilizar a leitura de dados existentes.
+- Migration `20261005172851_AddConexaoMercadoPago` e snapshot são versionados juntos. Aplicada somente ao banco de testes WSL; nunca aplicar automaticamente ao banco do mantenedor. A reversão remove a tabela e perde credenciais; exige backup e aprovação se houver dados.
+- Cliente HTTP dedicado tem timeout de 10s, limite de resposta de 64 KiB e redirects desabilitados; não há retry automático. Classes internas de tentativa/tokens não são records para evitar ToString com credenciais. Não ativar logging de bodies/queries ou EnableSensitiveDataLogging.
+- Renovação, desconexão/revogação, concorrência na substituição da conta, checkout/webhooks, frontend e sandbox remoto permanecem pendentes. A constraint evita duas linhas, mas não define qual reconexão concorrente vence. Antes de cobrança real, resolver esses gates. Os testes atuais não certificam o fluxo completo de pagamentos.
+
 ### Repositórios, EF Core e banco
 
 - Interfaces ficam no `Domain`; implementações, em `Infrastructure/Repositories`.
@@ -244,7 +294,7 @@ dotnet test BarberApp.slnx --logger "console;verbosity=normal"
 dotnet test .\BarberApp.IntegrationTests\BarberApp.IntegrationTests.csproj --no-restore
 ```
 
-Não documente nem execute `BarberApp.UnitTests`: esse projeto ainda não existe. Ao adicionar uma nova suíte, registre aqui framework, fixtures, isolamento, banco e comandos.
+`BarberApp.UnitTests` contém testes unitários sem banco; `BarberApp.IntegrationTests` exercita a aplicação via HTTP/Identity. Execute ambos pela solução. Testes unitários não substituem verificação HTTP ou persistência PostgreSQL.
 
 ### Configuração local da API key
 

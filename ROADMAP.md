@@ -26,6 +26,19 @@ Nenhum agente escreve ou corrige código sem autorização explícita e pontual.
 
 ## Estado atual — 26/09/2026
 
+### Execução autônoma autorizada — 03/10/2026
+
+- A autorização de implementação cobre o roadmap, mantendo TDD e materiais de aprendizado por assunto. Não pressupõe aprovação final dos diffs.
+- Alvo de entrega: MVP local. Hospedagem ainda indefinida; preparar infraestrutura reproduzível sem publicar.
+- Frontend consultado em `C:\Users\joset\www\barberapp-web`, somente para leitura. Jornadas existentes: cliente (cadastro/login/perfil/reservas/pagamento), barbeiro (agenda/expediente) e admin (serviços/profissionais/clientes/agendamentos/indicadores).
+- O cliente HTTP atual do frontend não envia `X-API-Key`. A integração precisa preservar a chave em componente servidor, sem expô-la em variável pública ou navegador. Mudanças naquele repositório exigem escopo próprio.
+- Pagamento real solicitado; provedor ainda não informado. Manter o mock claramente identificado até especificar e testar a integração escolhida.
+- Refresh token, recuperação de senha, confirmação de email e invalidação no servidor ainda precisam de decisão; o alvo local não decide esses recursos automaticamente.
+- Primeiro incremento: projeto unitário e invariantes de disponibilidade. RED válido: 14 casos, 10 falhas esperadas e 4 aprovados. Correção escrita depois do RED; build sem avisos/erros. GREEN bloqueado por Smart App Control (`0x800711C7`) ao carregar `BarberApp.Domain.dll`, confirmado nos eventos do Windows mesmo após recompilação fora do sandbox.
+- A suíte de integração passou com 45 testes antes da alteração. Após a alteração, as falhas de carregamento não demonstram regressão funcional nem comprovam sucesso.
+- Atualização de 03/10/2026: mantenedor executou a solução no próprio terminal e confirmou GREEN com 59 testes aprovados, zero falhas/ignorados. O bloqueio observado pelo agente permanece como limitação daquele ambiente.
+- Relatório e estudo em `docs/execucao-roadmap.md` e `docs/estudos/01-disponibilidade-e-tdd.html`.
+
 - A API está dividida em `Domain`, `Application`, `Infrastructure` e `API`.
 - PostgreSQL, EF Core, Identity, JWT e Swagger estão integrados.
 - A autenticação global por API key está implementada em uma branch de feature.
@@ -202,6 +215,18 @@ Fluxos escolhidos estão documentados, testados e não dependem de credenciais f
 **Estado:** `[ ] Não iniciado`
 
 **Objetivo:** decidir se o mock atende ao MVP ou se um gateway real será integrado.
+
+### Decisões confirmadas — 03/10/2026
+
+- Uma instalação por barbearia e uma única conta recebedora, pertencente ao dono. Repasse aos barbeiros é responsabilidade dele, fora do BarberApp.
+- Provedor escolhido: Mercado Pago, Checkout Pro; conectar a conta pelo painel Admin via OAuth.
+- Implementar primeiro em testes, sem cobranças reais. Meios de pagamento dependem da disponibilidade do provedor para a conta/checkout.
+- Primeiro incremento de conexão: início OAuth implementado (API key, JWT, role, configuração, URL fixa, state, PKCE, ausência de segredos e no-store). RED no WSL: 14 falhas esperadas e 1 aprovado; GREEN da solução: 74 aprovados. Diff aguarda revisão. Callback, tokens e checkout real ainda não implementados.
+- Incremento seguinte: validação do callback escrita após RED (17 falhas, 4 aprovações). Ajuste da representação de security e do teste aprovado pelo mantenedor. GREEN: 95 aprovados, zero falhas/ignorados; build sem avisos/erros. Troca de tokens e conexão real permanecem pendentes; diff aguarda revisão final. Material em `docs/estudos/03-callback-state-e-concorrencia.html`.
+- 05/10/2026: especificação HTTP da troca de tokens adicionada, 16 casos (RED: 14 falhas esperadas e 2 aprovados). Não houve implementação. Opt-in de conexão proposto para preservar o contrato atual. Persistência protegida e falha de gravação ainda precisam de testes antes de implementar sucesso. Estudo em `docs/estudos/04-troca-de-tokens-e-falhas.html`.
+- Atualização de 05/10/2026 após aprovação: troca de tokens e gravação criptografada implementadas; conexão opt-in e sandbox explícito. Testes de persistência/proteção/invariantes/driver indisponível e migration em PostgreSQL WSL: GREEN com 125 aprovados, zero falhas/ignorados; modelo sem mudanças pendentes. Nenhuma conta real ou cobrança. Migration ainda não aplicada ao banco da aplicação. Pendentes: status para painel, renovação, desconexão/revogação, reconexão concorrente e fluxo Checkout Pro/webhooks. Revisar diff antes de avançar. Estudo em `docs/estudos/05-protecao-de-tokens-e-persistencia.html`.
+- Callback, armazenamento protegido, renovação/desconexão, criação do checkout, notificações assinadas e reconciliação serão incrementos separados.
+- A política de confirmação/cancelamento de agendamento, prazo de pagamento e reembolso ainda precisa ser definida antes de automatizar essas transições.
 
 ### Decisões
 
