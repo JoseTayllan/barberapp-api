@@ -9,8 +9,36 @@ namespace BarberApp.API.Controllers;
 [ApiController]
 [Route("api/integracoes/mercado-pago")]
 [Authorize(Roles = "Admin")]
-public sealed class IntegracaoMercadoPagoController(IConexaoMercadoPagoService service) : ControllerBase
+public sealed class IntegracaoMercadoPagoController(
+    IConexaoMercadoPagoService service, IRenovacaoMercadoPagoService renovacaoService) : ControllerBase
 {
+    [HttpPost("renovacao")]
+    public async Task<ActionResult<StatusConexaoMercadoPagoResponse>> RenovarAsync(CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (string.IsNullOrWhiteSpace(User.FindFirstValue(ClaimTypes.NameIdentifier)))
+            return Unauthorized();
+
+        try
+        {
+            return Ok(await renovacaoService.RenovarAsync(cancellationToken));
+        }
+        catch (MercadoPagoNaoConfiguradoException)
+        {
+            return Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "MercadoPagoNaoConfigurado");
+        }
+        catch (MercadoPagoOperacaoException exception)
+        {
+            var status = exception.Codigo switch
+            {
+                "MercadoPagoNaoConectado" or "MercadoPagoReautorizacaoNecessaria" => StatusCodes.Status409Conflict,
+                "MercadoPagoProvedorFalhou" or "MercadoPagoRespostaInvalida" => StatusCodes.Status502BadGateway,
+                _ => StatusCodes.Status503ServiceUnavailable
+            };
+            return Problem(statusCode: status, title: exception.Codigo);
+        }
+    }
+
     [HttpGet("status")]
     public async Task<ActionResult<StatusConexaoMercadoPagoResponse>> Status(CancellationToken cancellationToken)
     {

@@ -286,6 +286,12 @@ O incremento anterior foi revisado pelo mantenedor e enviado no commit `522e535`
 
 RED no WSL: 16 casos, 13 falhas por rota/contrato inexistentes e três aprovados. Especificação aprovada pelo mantenedor; implementação sem alterar os testes, somente consulta/projeção local e contrato HTTP. GREEN: 141 testes da solução aprovados, zero falhas/ignorados, incluindo PostgreSQL; build sem avisos/erros e lint do recorte aprovado. Sem nova migration, chamadas externas ou pagamentos reais. Diff aguarda revisão final; estudo em `docs/estudos/06-status-local-da-conexao.html`. Renovação/desconexão, gestão de chaves, reconexão concorrente e checkout/webhooks continuam pendentes.
 
+## Incremento em revisão — renovação manual (19/10/2026)
+
+Status local aprovado e registrado em `86cba24`. Testes propostos para POST Admin de renovação: utilizar refresh protegido, rotacionar ambos os tokens, preservar conta/Admin/ambiente e retornar somente metadados após gravação. Bloquear configuração incompatível, conta trocada, credenciais locais inválidas e falhas externas sem vazamento ou retry automático.
+
+RED: 26 falhas esperadas por rota ausente e dois aprovados. Testes aprovados pelo mantenedor; implementação mínima sem alterá-los. GREEN no WSL com PostgreSQL isolado: 169 aprovados (22 unitários + 147 integração), zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Serviço próprio de renovação, leitura protegida separada do status e transporte OAuth compartilhado. Sem migration, credenciais reais ou chamadas ao provedor. Diff final em revisão. Renovação automática, coordenação de operações simultâneas e recuperação após rotação remota sem persistência não estão resolvidas; permanecem gates antes de uso real. Estudo: `docs/estudos/07-renovacao-e-rotacao-de-tokens.html`.
+
 ## Definição de pronto do backend MVP
 
 O backend será considerado pronto quando:

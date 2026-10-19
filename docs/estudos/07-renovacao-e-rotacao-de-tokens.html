@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 07 — Renovação e rotação de tokens</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Renovar não é repetir o login</h1>
+  <p>19/10/2026 — Implementado após aprovação dos testes. RED: 26 falhas e dois aprovados; GREEN dos mesmos 28, sem alterá-los. Suíte completa com PostgreSQL isolado: 169 aprovados, zero falhas/ignorados; build e lint do recorte aprovados. Diff aguarda revisão final; nenhuma conta real ou cobrança.</p>
+  <section>
+    <h2>Duas credenciais, funções diferentes</h2>
+    <p>O access token permite acessar recursos do provedor. O refresh token permite solicitar novas credenciais sem repetir a jornada de autorização do navegador, quando a permissão concedida permite isso.</p>
+    <p>O Mercado Pago documenta rotação também do refresh token e autorização offline_access. Precisamos proteger e substituir os dois valores. O modelo atual não guarda scopes; o consentimento precisa ser validado no sandbox real, não presumido por um teste simulado.</p>
+  </section>
+  <section>
+    <h2>Contrato implementado</h2>
+    <p>POST <code>/api/integracoes/mercado-pago/renovacao</code>, com API key e JWT Admin identificado. Não enviar tokens no body: o servidor usa a conta da instalação e abre o payload protegido com o propósito correto.</p>
+    <p>Solicitação remota: URL fixa, grant_type refresh_token e credenciais privadas. Não reutilizar o authorization code nem o verifier do callback. Configuração sandbox deve coincidir com o registro; não migrar implicitamente credenciais entre ambientes.</p>
+    <p>Sucesso retorna somente os mesmos quatro metadados do status local, com no-store. O servidor só diz Conectado depois de proteger e gravar os novos tokens. Uma renovação não pode trocar silenciosamente a conta recebedora.</p>
+  </section>
+  <section>
+    <h2>O intervalo perigoso</h2>
+    <p>Imagine que o provedor já emitiu tokens novos, mas o banco ficou indisponível. A aplicação deve retornar falha, sem inventar sucesso ou salvar plaintext. Porém manter o registro antigo não desfaz o que aconteceu no provedor.</p>
+    <p>Por isso os testes exigem ausência de retry automático, mas não certificam recuperação operacional. Pode ser necessária nova autorização. Concorrência entre renovação, reconexão e futura desconexão também precisa de testes antes de pagamentos reais.</p>
+  </section>
+  <section>
+    <h2>Como ler os testes</h2>
+    <p>Cenario é a fixture: banco InMemory com nome estável por caso, provider criptográfico efêmero, relógio fixo e handler HTTP falso. Valores ONLY-FOR-TESTS não são credenciais reais.</p>
+    <p>Nos cenários válidos, a asserção abre o conteúdo salvo para conferir ambos os novos tokens e exige falha com outro propósito. Nos cenários de erro, confere que ciphertext, conta, Admin, sandbox e expiração anteriores foram preservados. Também conta chamadas remotas para detectar retry.</p>
+    <p>No RED, as falhas recebiam 404 porque a rota não existia. Dois casos já passavam pelos bloqueios de API key. Depois da aprovação e implementação, os mesmos 28 passaram sem mudanças. O teste PostgreSQL da suíte cobre armazenamento/migration/constraint anteriores, não todo o HTTP novo contra esse banco.</p>
+  </section>
+  <section>
+    <h2>Como o código foi dividido</h2>
+    <p>Controller autoriza, verifica identificador e traduz as respostas HTTP. RenovacaoMercadoPagoService valida configuração, abre somente o refresh necessário, confere a conta da resposta, protege os novos tokens e aguarda a gravação.</p>
+    <p>ICredenciaisConexaoMercadoPagoRepository lê a entidade protegida sem tracking. É um contrato distinto da consulta de status, que continua trazendo somente metadados. Não criamos tabela nem migration nova.</p>
+    <p>MercadoPagoOAuthClient agora compartilha transporte e validação estrutural entre o callback e a renovação. O payload depende do grant; apenas refresh trata invalid_grant como necessidade de nova autorização. Os testes antigos continuam cobrindo o callback.</p>
+    <p>Scoped significa uma instância por escopo; não significa lock entre requisições. Ainda precisamos coordenar operações simultâneas e planejar recuperação quando o provedor rotaciona antes de uma falha local. Este incremento não torna pagamentos reais seguros por si só.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Posso guardar só o access token novo?</summary><p>Não. O refresh token também é rotacionado. A próxima renovação deve usar o valor retornado na última operação bem-sucedida.</p></details>
+    <details><summary>2. Por que não devolver o refresh token ao Admin?</summary><p>Porque o Admin precisa comandar a operação, não carregar a credencial. O servidor a usa e protege; o navegador recebe somente metadados.</p></details>
+    <details><summary>3. Outro user_id na resposta pode substituir a conta?</summary><p>Não. Renovar significa manter a identidade recebedora. O teste exige rejeitar essa resposta sem substituir o registro.</p></details>
+    <details><summary>4. Timeout significa que o provedor não fez nada?</summary><p>Não. A resposta pode ter se perdido depois do processamento. Repetir automaticamente uma operação de rotação pode piorar o estado; reconciliação ainda precisa ser projetada.</p></details>
+    <details><summary>5. Preservar o banco antigo garante recuperação?</summary><p>Não. Preservação local evita corrupção, mas não garante validade remota. Provedor e banco não participam de uma transação única.</p></details>
+    <details><summary>6. Por que 409 para invalid_grant e 502 para outra falha remota?</summary><p>É o contrato aprovado do BarberApp: invalid_grant sinaliza necessidade de nova autorização; falha genérica do provedor não deve ser confundida com isso. O body remoto nunca é copiado para o usuário.</p></details>
+  </section>
+  <p><a href="https://www.mercadopago.com.br/developers/pt/docs/security/oauth/renewal">Referência oficial Mercado Pago: renovação</a></p>
+  <p><a href="06-status-local-da-conexao.html">Voltar: status local</a></p>
+</main></body>
+</html>

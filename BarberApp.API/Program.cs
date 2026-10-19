@@ -91,6 +91,7 @@ builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IPagamentoRepository, PagamentoRepository>();
 builder.Services.AddScoped<IConexaoMercadoPagoRepository, ConexaoMercadoPagoRepository>();
 builder.Services.AddScoped<IConsultaConexaoMercadoPagoRepository, ConexaoMercadoPagoRepository>();
+builder.Services.AddScoped<ICredenciaisConexaoMercadoPagoRepository, ConexaoMercadoPagoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IDisponibilidadeRepository, DisponibilidadeRepository>();
 builder.Services.AddScoped<IExcecaoAgendaRepository, ExcecaoAgendaRepository>();
@@ -110,6 +111,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TentativasMercadoPagoStore>();
 builder.Services.AddScoped<IConexaoMercadoPagoService, ConexaoMercadoPagoService>();
+builder.Services.AddScoped<IRenovacaoMercadoPagoService, RenovacaoMercadoPagoService>();
 builder.Services.AddScoped<MercadoPagoOAuthClient>();
 builder.Services.AddHttpClient("MercadoPagoOAuth", client =>
 {

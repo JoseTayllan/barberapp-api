@@ -6,8 +6,11 @@ using Microsoft.EntityFrameworkCore;
 namespace BarberApp.Infrastructure.Repositories;
 
 public sealed class ConexaoMercadoPagoRepository(AppDbContext context)
-    : IConexaoMercadoPagoRepository, IConsultaConexaoMercadoPagoRepository
+    : IConexaoMercadoPagoRepository, IConsultaConexaoMercadoPagoRepository, ICredenciaisConexaoMercadoPagoRepository
 {
+    public Task<ConexaoMercadoPago?> ObterCredenciaisAsync(CancellationToken cancellationToken) =>
+        context.ConexoesMercadoPago.AsNoTracking().SingleOrDefaultAsync(cancellationToken);
+
     public Task<MetadadosConexaoMercadoPago?> ConsultarAsync(CancellationToken cancellationToken) =>
         context.ConexoesMercadoPago.AsNoTracking()
             .Select(conexao => new MetadadosConexaoMercadoPago(conexao.ContaId, conexao.ExpiraEm, conexao.Sandbox))

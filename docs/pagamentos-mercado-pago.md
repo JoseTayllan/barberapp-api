@@ -70,11 +70,11 @@ Migration e snapshot: `20261005172851_AddConexaoMercadoPago`. [SQL para revisão
 
 GREEN no WSL: 125 aprovados (22 unitários + 103 integração), zero falhas/ignorados, incluindo migration/persistência/constraint no PostgreSQL isolado. Testes anteriores e expectativas da troca preservados. A fixture nova foi corrigida para compartilhar o mesmo InMemory entre escopos, sem alterar contratos; o erro original era um banco diferente por resolução.
 
-Limites: não há refresh/revogação/desconexão, política de reconexão concorrente, checkout/webhooks ou validação sandbox real. O status local para painel foi implementado no incremento abaixo. Não declarar pagamentos prontos. Perder as chaves inviabiliza ler ciphertext; falha de gravação após emissão de tokens pode exigir revogar a autorização no provedor e iniciar novamente. Resolver esses pontos antes de dinheiro real.
+Limites: não há renovação automática/revogação/desconexão, política de reconexão concorrente, checkout/webhooks ou validação sandbox real. Status local e renovação manual foram implementados nos incrementos abaixo. Não declarar pagamentos prontos. Perder as chaves inviabiliza ler ciphertext; falha de gravação após emissão de tokens pode exigir revogar a autorização no provedor e iniciar novamente. Resolver esses pontos antes de dinheiro real.
 
 1. Emissão da URL e contexto temporário implementados; revisar diff.
 2. Callback e troca com PKCE implementados e testados com HTTP simulado; revisar diff.
-3. Tokens protegidos gravados e status local Admin implementado. Próximos: renovação, desconexão/revogação e coordenação de reconexões.
+3. Tokens protegidos gravados, status local Admin e renovação manual implementados. Próximos: recuperação de rotação sem persistência, desconexão/revogação e coordenação de operações concorrentes.
 4. Gerar checkout: autorização por propriedade do agendamento, preço consultado no servidor e idempotência.
 5. Validar notificações e consultar status no provedor antes de atualizar pagamento.
 6. Exercitar ambiente de teste real, com aplicação cadastrada e URL HTTPS acessível.
@@ -92,6 +92,33 @@ Sem registro: `NaoConectado` e metadados null. Registro com expiração futura: 
 Consulta estritamente local, sem descriptografar, atualizar ou criar cliente HTTP externo. Não atesta validade remota ou capacidade de pagamento. Falha esperada do driver: 503 com título `MercadoPagoConsultaFalhou`, sem detalhes internos; sucesso e essa falha com no-store.
 
 Após RED de 13 falhas/três aprovações e aprovação humana, os mesmos 16 casos passaram sem alteração. GREEN da solução no WSL: 141 aprovados (22 unitários + 119 integração), zero falhas/ignorados, incluindo PostgreSQL. Build sem avisos/erros; lint do recorte aprovado. Repositório projeta apenas os três metadados com AsNoTracking, sem carregar ciphertext nem Admin; contrato de leitura separado preserva o de gravação. Não há migration nova. Veja [estudo 06](estudos/06-status-local-da-conexao.html).
+
+## Renovação manual — GREEN técnico, diff em revisão (19/10/2026)
+
+Status local revisado pelo mantenedor e registrado em `86cba24`. Após RED de 26 falhas/dois aprovados e aprovação da especificação, implementado `POST /api/integracoes/mercado-pago/renovacao`. Requer API key + JWT Admin identificado e usa somente as credenciais protegidas da instalação, sem tokens fornecidos pelo consumidor.
+
+Contrato externo baseado no [exemplo oficial de renovação](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/renewal): POST JSON para o host OAuth fixo, grant_type refresh_token, refresh anterior e credenciais da aplicação. O provedor informa rotação do refresh token e exige autorização offline_access; validar essa permissão na integração sandbox real. O modelo atual não persiste scopes e os testes simulados não comprovam consentimento remoto.
+
+Sucesso: 200 com exatamente status/contaId/expiraEm/sandbox, no-store, somente após proteger e gravar ambos os tokens novos. Preservar conta, Admin de origem e sandbox; o Admin que solicita pode ser outro. Aceitar renovação antes ou depois da expiração local não garante que o provedor aceite qualquer token antigo.
+
+| Condição | Resultado |
+| --- | --- |
+| Sem conexão | 409 MercadoPagoNaoConectado |
+| Conexão desabilitada | 503 MercadoPagoConexaoDesabilitada |
+| ClientId/ClientSecret ausentes | 503 MercadoPagoNaoConfigurado |
+| Sandbox configurado diferente do registro | 503 MercadoPagoAmbienteIncompativel |
+| Credenciais locais ilegíveis/incompletas | 503 MercadoPagoCredenciaisIndisponiveis |
+| 400 remoto com error invalid_grant | 409 MercadoPagoReautorizacaoNecessaria |
+| Outro HTTP remoto sem sucesso | 502 MercadoPagoProvedorFalhou |
+| Resposta inválida ou user_id diferente | 502 MercadoPagoRespostaInvalida |
+| Timeout | 503 MercadoPagoIndisponivel |
+| Proteção ou escrita falhou | 503 MercadoPagoProtecaoFalhou / MercadoPagoPersistenciaFalhou |
+
+Falhas mantêm o registro local anterior, sem expor secrets, ciphertext ou bodies externos. Não fazer retry automático. Se a rotação remota ocorreu antes da falha local, o refresh antigo pode não funcionar: preservar banco não é rollback do provedor. Operações simultâneas, recuperação dessa situação e renovação automática exigem outro recorte e testes antes de uso real. Não habilitar dinheiro real após este GREEN isoladamente.
+
+RenovacaoMercadoPagoService é scoped e separado da consulta de status. ICredenciaisConexaoMercadoPagoRepository obtém somente a entidade com ciphertext, sem tracking; não modifica a projeção de status. O cliente OAuth reaproveita transporte/validação do callback, interpretando invalid_grant somente na renovação. A configuração de timeout/limite de resposta/redirects continua a mesma; sem retry ou mudanças de schema.
+
+Os mesmos 28 testes passaram sem alteração; suíte completa no WSL com PostgreSQL isolado: 169 aprovados (22 unitários + 147 integração), zero falhas/ignorados; build sem avisos/erros, lint do recorte aprovado. O HTTP novo usa InMemory e provedor simulado; o teste relacional existente cobre persistência/migration/constraint anterior, não a renovação HTTP contra PostgreSQL. Sem conta real conectada, credenciais reais ou cobranças.
 
 ## Referências oficiais
 
