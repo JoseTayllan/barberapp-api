@@ -18,6 +18,15 @@ public sealed class TentativasMercadoPagoStore(IMemoryCache cache, TimeProvider 
         }
     }
 
+    internal TentativaMercadoPago? Consultar(string state)
+    {
+        lock (_lock)
+        {
+            return cache.TryGetValue<TentativaMercadoPago>($"mercado-pago:state:{state}", out var tentativa)
+                && tentativa is not null && tentativa.ExpiraEm > timeProvider.GetUtcNow() ? tentativa : null;
+        }
+    }
+
     internal TentativaMercadoPago? Consumir(string state)
     {
         lock (_lock)

@@ -31,7 +31,8 @@ public sealed class IntegracaoMercadoPagoController(
         {
             var status = exception.Codigo switch
             {
-                "MercadoPagoNaoConectado" or "MercadoPagoReautorizacaoNecessaria" => StatusCodes.Status409Conflict,
+                "MercadoPagoNaoConectado" or "MercadoPagoReautorizacaoNecessaria"
+                    or "MercadoPagoOperacaoEmAndamento" => StatusCodes.Status409Conflict,
                 "MercadoPagoProvedorFalhou" or "MercadoPagoRespostaInvalida" => StatusCodes.Status502BadGateway,
                 _ => StatusCodes.Status503ServiceUnavailable
             };
@@ -87,8 +88,12 @@ public sealed class IntegracaoMercadoPagoController(
         }
         catch (MercadoPagoOperacaoException exception)
         {
-            var status = exception.Codigo is "MercadoPagoProvedorFalhou" or "MercadoPagoRespostaInvalida"
-                ? StatusCodes.Status502BadGateway : StatusCodes.Status503ServiceUnavailable;
+            var status = exception.Codigo switch
+            {
+                "MercadoPagoOperacaoEmAndamento" => StatusCodes.Status409Conflict,
+                "MercadoPagoProvedorFalhou" or "MercadoPagoRespostaInvalida" => StatusCodes.Status502BadGateway,
+                _ => StatusCodes.Status503ServiceUnavailable
+            };
             return Problem(statusCode: status, title: exception.Codigo);
         }
     }

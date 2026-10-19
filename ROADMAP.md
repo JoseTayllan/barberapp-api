@@ -292,6 +292,12 @@ Status local aprovado e registrado em `86cba24`. Testes propostos para POST Admi
 
 RED: 26 falhas esperadas por rota ausente e dois aprovados. Testes aprovados pelo mantenedor; implementação mínima sem alterá-los. GREEN no WSL com PostgreSQL isolado: 169 aprovados (22 unitários + 147 integração), zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Serviço próprio de renovação, leitura protegida separada do status e transporte OAuth compartilhado. Sem migration, credenciais reais ou chamadas ao provedor. Diff final em revisão. Renovação automática, coordenação de operações simultâneas e recuperação após rotação remota sem persistência não estão resolvidas; permanecem gates antes de uso real. Estudo: `docs/estudos/07-renovacao-e-rotacao-de-tokens.html`.
 
+## Incremento em revisão — concorrência local de credenciais (19/10/2026)
+
+Renovação manual aprovada em `9f760ae`. Nove novos casos HTTP propõem primeira operação admitida com exclusividade até gravação/falha e rejeição imediata de concorrentes com 409 MercadoPagoOperacaoEmAndamento, sem segunda chamada externa. Abrange renovação/renovação, callback/callback e ambas as ordens mistas; preserva state do callback rejeitado antes do envio do código e permite consultar status.
+
+RED funcional: oito falhas e um aprovado. Especificação aprovada e implementada sem alterar os testes: coordenador singleton com escopo descartável, consulta de state antes de admissão e consumo depois; proteção até concluir escrita/falha. GREEN no WSL com PostgreSQL isolado: 178 aprovados (22 unitários + 156 integração), zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Sem migration ou chamada real. Diff final em revisão. Escopo: uma instância da API. Coordenação distribuída, efeitos remotos incertos e recuperação de rotação sem persistência continuam pendentes. Estudo: `docs/estudos/08-concorrencia-e-ordem-das-operacoes.html`.
+
 ## Definição de pronto do backend MVP
 
 O backend será considerado pronto quando:

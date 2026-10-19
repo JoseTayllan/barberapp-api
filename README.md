@@ -574,6 +574,10 @@ O desenvolvimento segue TDD para tudo que for criado ou modificado: primeiro um 
 
 ---
 
+### Concorrência de credenciais — implementação em revisão
+
+A renovação manual foi aprovada e registrada em `9f760ae`. Após aprovação dos nove testes de concorrência, implementada exclusividade local entre renovação e callback até terminar a gravação. Concorrente recebe 409 MercadoPagoOperacaoEmAndamento sem chamar o provedor; callback rejeitado antes do envio mantém state válido para nova tentativa manual. Status permanece disponível. GREEN no WSL com PostgreSQL isolado: 178 aprovados, zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado, sem alterar os testes. Não é proteção entre múltiplas instâncias nem recuperação de falha remota. Sem nova migration, chamadas reais ou pagamentos habilitados. Veja [estudo 08](docs/estudos/08-concorrencia-e-ordem-das-operacoes.html); diff aguarda revisão final.
+
 ## 👨‍💻 Autor: José Tyllan Pinto Almeida
 
 Desenvolvido como projeto de portfólio para demonstrar domínio de:

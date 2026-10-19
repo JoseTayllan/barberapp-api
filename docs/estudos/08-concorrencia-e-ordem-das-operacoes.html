@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 08 — Concorrência e ordem das operações</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Duas requisições, uma conta recebedora</h1>
+  <p>19/10/2026 — Implementado após aprovação dos testes: RED de oito falhas/um aprovado, depois GREEN dos mesmos nove sem alterações. Suíte completa com PostgreSQL isolado: 178 aprovados, zero falhas/ignorados; build e lint do recorte aprovados. Diff aguarda revisão final; sem pagamentos reais.</p>
+  <section>
+    <h2>Qual é o risco?</h2>
+    <p>Uma renovação lê as credenciais da conta A e aguarda o provedor. Nesse intervalo, uma reconexão pode gravar a conta B. Se a renovação antiga terminar por último e gravar seu snapshot, poderá recolocar a conta A.</p>
+    <p>Uma única linha no banco evita duplicação, mas não impede sobrescrever valores mais novos. Scoped também não resolve: ele separa dependências por requisição, sem coordenar requisições distintas.</p>
+  </section>
+  <section>
+    <h2>Regra aprovada para o MVP local</h2>
+    <p>A primeira operação admitida mantém exclusividade entre renovação e callback que troca tokens, até concluir a gravação ou falhar. A segunda recebe 409 MercadoPagoOperacaoEmAndamento antes de contatar o provedor. Não haverá fila nem retry automático.</p>
+    <p>O consumidor pode apresentar a ocupação ao Admin e permitir nova tentativa. Um callback rejeitado antes de enviar o código preserva seu state enquanto válido. Depois de aceito, o state continua de uso único.</p>
+    <p>A consulta de status continua disponível, mostrando o último registro salvo. Callback com state inválido permanece 400; estar ocupado não torna uma tentativa inválida aceitável.</p>
+  </section>
+  <section>
+    <h2>Como testar sem depender da sorte</h2>
+    <p>TaskCompletionSource funciona aqui como um sinal: o teste espera o provedor falso informar que a primeira operação entrou e a mantém pausada. Só então envia a concorrente e exige o conflito, com uma única chamada externa.</p>
+    <p>Outros casos pausam SaveChangesAsync. Isso detecta a implementação incompleta que libera a proteção logo após receber tokens, antes de salvá-los.</p>
+    <p>Um finally libera o sinal e aguarda a primeira operação terminar, mesmo quando uma asserção falha. WaitAsync de dez segundos protege o diagnóstico contra deadlock; não é a sincronização nem uma promessa de desempenho. Não usamos Thread.Sleep ou Task.Delay.</p>
+  </section>
+  <section>
+    <h2>O que os nove casos especificam</h2>
+    <p>Seis disputas: quatro combinações no provedor e duas ordens mistas na gravação. Após o sucesso, nova solicitação deve usar o refresh recém-salvo; se era callback rejeitado, a mesma tentativa ainda deve funcionar e depois rejeitar replay.</p>
+    <p>Dois casos exigem liberar a operação após falha externa ou de persistência. O último mantém status e rejeição de callback inválido disponíveis durante a pausa.</p>
+    <p>No RED, sete concorrentes receberam 200 e um recebeu 503 por chegar indevidamente à gravação simulada com falha. O esperado era 409 antes desses efeitos. Um caso de disponibilidade já passou. Um using ausente foi corrigido antes da execução; erro de compilação não conta como RED funcional.</p>
+  </section>
+  <section>
+    <h2>Como o código implementa a admissão</h2>
+    <p>CoordenadorOperacoesMercadoPago é singleton e guarda um inteiro, não um DbContext nem tokens. Interlocked.CompareExchange tenta trocar zero por um atomicamente: o retorno zero admite a operação; outro valor provoca o conflito.</p>
+    <p>Iniciar devolve um escopo descartável. Using mantém esse escopo vivo durante os awaits até o método sair, e Dispose libera a ocupação. Interlocked.Exchange remove a referência do escopo ao coordenador, tornando o descarte idempotente: descartar duas vezes não libera uma operação nova por engano.</p>
+    <p>O callback consulta state sem consumir, entra no coordenador e consome novamente sob lock. Se não consegue entrar, não toca no código nem na tentativa. Se state expirar ou for substituído nesse intervalo, a segunda verificação impede a troca. Renovação lê as credenciais somente depois da admissão.</p>
+    <p>Recusa e conexão desabilitada mantêm o fluxo anterior, pois não trocam/persistem credenciais. Consulta de status não entra no coordenador.</p>
+  </section>
+  <section>
+    <h2>O limite desta solução</h2>
+    <p>O contrato implementado vale para uma instância/processo. Não protege outro servidor, escrita externa ou efeitos remotos que terminem após timeout/cancelamento. Hospedagem com réplicas exigirá coordenação e testes próprios.</p>
+    <p>Permitir uma nova requisição após falha não comprova que o refresh antigo ainda funciona. Nos testes, o provedor é simulado. Recuperação de rotação sem persistência continua pendente e pagamentos reais permanecem bloqueados.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que a PK Id=1 não basta?</summary><p>Ela impede duas linhas, mas duas requisições podem atualizar a mesma linha com snapshots diferentes. Precisamos coordenar a sequência de operações.</p></details>
+    <details><summary>2. Quando a exclusividade pode terminar?</summary><p>Depois que a gravação termina ou o fluxo falha. Liberar ao receber a resposta do provedor ainda deixa a persistência exposta à disputa.</p></details>
+    <details><summary>3. Por que preservar state no conflito?</summary><p>Porque esse callback ainda não enviou seu código nem executou a operação. Consumir a tentativa nesse ponto impediria retomá-la sem uma nova autorização. A expiração original continua valendo.</p></details>
+    <details><summary>4. Esperar dez segundos ordena o teste?</summary><p>Não. A ordem vem dos sinais Entrou e Liberar. O limite só transforma um travamento em diagnóstico, em vez de deixar o teste aguardando indefinidamente.</p></details>
+    <details><summary>5. Dois processos compartilham um singleton?</summary><p>Não. Cada processo tem suas próprias instâncias. Este recorte local não substitui coordenação entre servidores.</p></details>
+    <details><summary>6. Uma operação liberada após erro significa credenciais recuperadas?</summary><p>Não. Liberação é disponibilidade do mecanismo local. Validade no provedor e recuperação de tokens são problemas separados.</p></details>
+  </section>
+  <p><a href="07-renovacao-e-rotacao-de-tokens.html">Voltar: renovação e rotação</a></p>
+</main></body>
+</html>

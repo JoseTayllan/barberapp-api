@@ -14,7 +14,8 @@ namespace BarberApp.Infrastructure.Payment;
 public sealed class RenovacaoMercadoPagoService(
     IConfiguration configuration, ICredenciaisConexaoMercadoPagoRepository credenciaisRepository,
     IConexaoMercadoPagoRepository repository, IDataProtectionProvider protectionProvider,
-    MercadoPagoOAuthClient oauthClient, TimeProvider timeProvider) : IRenovacaoMercadoPagoService
+    MercadoPagoOAuthClient oauthClient, TimeProvider timeProvider,
+    CoordenadorOperacoesMercadoPago coordenador) : IRenovacaoMercadoPagoService
 {
     public async Task<StatusConexaoMercadoPagoResponse> RenovarAsync(CancellationToken cancellationToken)
     {
@@ -28,6 +29,8 @@ public sealed class RenovacaoMercadoPagoService(
             || !bool.TryParse(configuration["MercadoPago:Sandbox"], out var sandbox))
             throw new MercadoPagoNaoConfiguradoException();
 
+        // Ler as credenciais somente após admissão evita usar um snapshot anterior à reconexão.
+        using var operacao = coordenador.Iniciar(cancellationToken);
         ConexaoMercadoPago? conexao;
         try
         {

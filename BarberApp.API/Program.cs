@@ -110,6 +110,7 @@ builder.Services.AddScoped<IPaymentService, MockPaymentService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<TentativasMercadoPagoStore>();
+builder.Services.AddSingleton<CoordenadorOperacoesMercadoPago>();
 builder.Services.AddScoped<IConexaoMercadoPagoService, ConexaoMercadoPagoService>();
 builder.Services.AddScoped<IRenovacaoMercadoPagoService, RenovacaoMercadoPagoService>();
 builder.Services.AddScoped<MercadoPagoOAuthClient>();

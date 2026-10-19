@@ -16,7 +16,8 @@ public sealed class ConexaoMercadoPagoService(
     IConfiguration configuration, TentativasMercadoPagoStore tentativas, TimeProvider timeProvider,
     MercadoPagoOAuthClient oauthClient, IConexaoMercadoPagoRepository repository,
     IDataProtectionProvider protectionProvider,
-    IConsultaConexaoMercadoPagoRepository consultaRepository) : IConexaoMercadoPagoService
+    IConsultaConexaoMercadoPagoRepository consultaRepository,
+    CoordenadorOperacoesMercadoPago coordenador) : IConexaoMercadoPagoService
 {
     public async Task<StatusConexaoMercadoPagoResponse> ConsultarStatusAsync(CancellationToken cancellationToken)
     {
@@ -86,13 +87,22 @@ public sealed class ConexaoMercadoPagoService(
             throw new MercadoPagoCallbackInvalidoException();
         }
 
+        var enabled = bool.TryParse(configuration["MercadoPago:ConexaoEnabled"], out var configured) && configured;
+        if (error == "access_denied" || !enabled)
+        {
+            if (tentativas.Consumir(state) is null)
+                throw new MercadoPagoCallbackInvalidoException();
+            return error == "access_denied" ? ResultadoRetornoMercadoPago.AutorizacaoRecusada
+                : ResultadoRetornoMercadoPago.TrocaTokenPendente;
+        }
+
+        if (tentativas.Consultar(state) is null)
+            throw new MercadoPagoCallbackInvalidoException();
+        // Conflito antes do consumo permite reenviar o callback que ainda não contatou o provedor.
+        using var operacao = coordenador.Iniciar(cancellationToken);
         var tentativa = tentativas.Consumir(state);
         if (tentativa is null)
             throw new MercadoPagoCallbackInvalidoException();
-        if (error == "access_denied")
-            return ResultadoRetornoMercadoPago.AutorizacaoRecusada;
-        if (!bool.TryParse(configuration["MercadoPago:ConexaoEnabled"], out var enabled) || !enabled)
-            return ResultadoRetornoMercadoPago.TrocaTokenPendente;
 
         if (!bool.TryParse(configuration["MercadoPago:Sandbox"], out var sandbox))
             throw new MercadoPagoNaoConfiguradoException();

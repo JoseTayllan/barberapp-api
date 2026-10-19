@@ -120,6 +120,18 @@ RenovacaoMercadoPagoService é scoped e separado da consulta de status. ICredenc
 
 Os mesmos 28 testes passaram sem alteração; suíte completa no WSL com PostgreSQL isolado: 169 aprovados (22 unitários + 147 integração), zero falhas/ignorados; build sem avisos/erros, lint do recorte aprovado. O HTTP novo usa InMemory e provedor simulado; o teste relacional existente cobre persistência/migration/constraint anterior, não a renovação HTTP contra PostgreSQL. Sem conta real conectada, credenciais reais ou cobranças.
 
+## Exclusividade local de credenciais — GREEN técnico, diff em revisão
+
+Incremento de renovação aprovado pelo mantenedor em `9f760ae`. Após aprovação dos nove testes, implementada uma operação alteradora por vez nesta instância da API, abrangendo renovação e troca de código do callback. A primeira admitida mantém exclusividade até salvar ou falhar; concorrente recebe 409 MercadoPagoOperacaoEmAndamento, no-store, sem segredos/state e sem chamada ao provedor. Não há fila ou retry automático. É um status adicional de conflito que consumidores deverão tratar.
+
+Um callback válido rejeitado por ocupação ainda não enviou seu código: manter state disponível para nova solicitação manual enquanto não expirar/substituir. Após a tentativa ser aceita, manter consumo único e rejeitar replay. Consulta de status e validação de callback inválido continuam disponíveis. Uma renovação admitida depois de reconexão deve ler o refresh atual, não usar um snapshot antigo.
+
+Os testes pausam provedor ou SaveChangesAsync com sinais explícitos, sem sleeps. Seis cenários de disputa; dois de liberação após falha; um de disponibilidade do status/callback inválido. RED: oito falhos e um aprovado; GREEN dos mesmos nove, arquivo preservado. Suíte completa no WSL com PostgreSQL isolado: 178 aprovados, zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Veja [estudo 08](estudos/08-concorrencia-e-ordem-das-operacoes.html).
+
+Coordenador singleton admite atomicamente por CompareExchange e devolve escopo IDisposable idempotente; serviços usam using através dos awaits de I/O. Renovação entra antes da leitura das credenciais. Callback verifica tentativa sem consumir, tenta admissão e só então consome sob lock; recusa/fluxo desabilitado preservam comportamento anterior, sem participar de alteração de credenciais. Não usa transação/lock de banco, não muda schema e não carrega serviços scoped no singleton.
+
+Limites: não é lock distribuído, transação remota/local, controle sobre outro processo ou garantia de token válido após erro. O provedor falso aceita a solicitação seguinte em testes de liberação apenas para provar que a exclusão não ficou presa; isso não comprova recuperação real de refresh rotacionado. Coordenação entre processos e reconciliação de resultados incertos exigem outros testes antes de uso real.
+
 ## Referências oficiais
 
 - [Authorization code, state e PKCE](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation).
