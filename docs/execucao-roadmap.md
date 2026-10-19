@@ -128,3 +128,26 @@ Estado: implementação em GREEN técnico; diff aguardando revisão humana. Os 1
 ### Esforço e redução de custo
 
 Um agente principal neste incremento, sem novos subagentes; três recortes RED funcionais, verificações da suíte completa, build, PostgreSQL/EF e formatação. Retrabalho concentrado na dependência de framework, isolamento da fixture e whitespace do código novo. Não há medição monetária/token precisa disponível; essa é uma estimativa operacional. Na próxima etapa: estabilizar a fixture antes de ampliar casos, usar o recorte afetado durante RED/GREEN, limitar revisão a uma rodada focada e reservar a suíte completa para o gate final. Sem commit, push, ativação real ou conclusão presumida do roadmap.
+
+## Incremento 6 — especificação de status local (05/10/2026)
+
+Incremento anterior aprovado pelo mantenedor, commit/push realizados por ele: `522e535`. Neste incremento foram escritos somente testes e documentação. Nenhuma alteração na implementação, schema ou testes anteriores.
+
+- `MercadoPagoConnectionStatusTests`: 15 casos do endpoint e um de validação da fixture. API key, JWT, roles e identificador; ausência de conta; sandbox/produção como metadado; limite UTC antes/igual/depois; outro Admin; consulta sem HTTP externo/descriptografia; ausência de mutação; falha segura do driver e OpenAPI.
+- Primeiro RED: 15 executados, 13 falhos e dois aprovados. Revisão endureceu a fixture: interceptação por tipo da entidade, não por texto da expressão; acrescentado teste que prova a falha seletiva e permite consulta de roles. RED final: 16 executados, 13 falhos, três aprovados, zero ignorados.
+- Motivos corretos: 12 casos esperavam respostas do novo contrato e receberam 404; um esperava a rota no Swagger, ainda ausente. Os dois casos da API key já são atendidos pelo middleware global; o terceiro aprovado valida somente a fixture.
+- Baseline com `FullyQualifiedName!~MercadoPagoConnectionStatusTests`: 125 anteriores aprovados (22 unitários + 103 integração), zero falhas/ignorados, PostgreSQL isolado incluído. Isso não significa que a suíte completa esteja GREEN.
+- Formatação do único arquivo C# novo: `dotnet format ... --verify-no-changes --include ...`, exit code 0. Compilação dos testes sem novos avisos. Sem credenciais reais ou chamadas externas, sem mudança nos três caches preexistentes.
+- Diff para revisar: um arquivo de testes, capítulo offline 06 e atualizações CODEX/README/ROADMAP/contrato/registro. README também corrigido para reconhecer o projeto unitário já existente. Nenhum arquivo de implementação modificado, nenhuma migration nem commit/push do agente.
+- Risco semântico: Conectado informa expiração local, não aceitação remota, integridade do ciphertext ou pagamento pronto. ContaId é dado administrativo, exposto somente a Admin. A consulta não abre tokens; validação remota e renovação serão etapas distintas.
+- Esforço estimado: um agente, duas execuções focadas RED, uma baseline e uma verificação de formatação. Refinamento restrito à fixture antes de congelar a especificação; nenhuma asserção de comportamento foi enfraquecida. Reduzir custo mantendo o recorte até GREEN e executando a suíte completa no gate final. A implementação aguarda aprovação destes testes.
+
+### GREEN após aprovação da especificação
+
+- Mantenedor aprovou os testes. Os 16 casos e sua fixture foram preservados integralmente durante a implementação.
+- Diff de implementação: DTO StatusConexaoMercadoPagoResponse; record de metadados e interface de leitura no Domain; projeção AsNoTracking no repositório; comparação UTC/erro seguro no serviço; GET autenticado no controller e um registro DI no Program. A interface de gravação e seus consumidores não foram alterados.
+- SELECT projetado não inclui TokensProtegidos/AdministradorId. Nenhum Unprotect, chamada HTTP, escrita, configuração sensível, dependência NuGet ou migration foi adicionado ao fluxo de consulta.
+- GREEN focado: 16 aprovados. GREEN final no WSL com PostgreSQL isolado: **141 aprovados, zero falhas/ignorados** (22 unitários + 119 integração). Build sem avisos/erros; verificação de formatação dos oito arquivos C# do recorte exit code 0. Não foi feita formatação global nem alteração dos caches preexistentes.
+- Revisão de diff: nenhum segredo ou log novo. Cancelamento propagado até SingleOrDefaultAsync, sem convertê-lo em ausência de conta. Erro esperado do driver vira 503 e não revela detalhes. Autorização por role e identificador, sem aceitar Admin no request. Swagger herda exigência ApiKey + Bearer, não a exceção do callback.
+- Riscos: status não prova revogação remota, integridade do ciphertext ou prontidão para pagamentos. Teste PostgreSQL existente valida armazenamento/migration/constraint, não a nova projeção por HTTP contra PostgreSQL. Fluxo HTTP novo foi validado com InMemory; não confundir os escopos de cobertura. Recuperação de chaves, renovação/revogação, reconexão concorrente e checkout ainda pendentes.
+- Esforço adicional: um agente, uma implementação, uma execução GREEN focada e uma verificação final de suíte/build/lint. Sem retrabalho funcional ou mudança nos testes aprovados. Continuar com recortes pequenos e leitura segregada para reduzir custo. Diff final aguarda aprovação; commit/push ficam com o mantenedor.

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 06 — Status local da conexão</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    pre { overflow-x: auto; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Consultar não é conectar nem cobrar</h1>
+  <p>05/10/2026 — Implementado após aprovação dos testes, sem alterá-los. RED: 13 falhas e três aprovações; GREEN: 141 aprovados na solução, incluindo PostgreSQL. Build e formatação do recorte aprovados. Diff aguarda revisão final; pagamentos reais continuam desativados.</p>
+  <section>
+    <h2>A pergunta do painel administrativo</h2>
+    <p>O dono quer saber se há uma conta Mercado Pago cadastrada e se o prazo do token registrado já acabou. A proposta é GET <code>/api/integracoes/mercado-pago/status</code>, somente com API key e JWT Admin identificado.</p>
+    <p>A conta pertence à instalação. Outro Admin autorizado pode consultar a mesma conta; não filtramos pelo Admin que iniciou a conexão.</p>
+  </section>
+  <section>
+    <h2>Um contrato pequeno, sem credenciais</h2>
+    <pre><code>{
+  "status": "NaoConectado",
+  "contaId": null,
+  "expiraEm": null,
+  "sandbox": null
+}</code></pre>
+    <p>São exatamente quatro campos. Com registro, o status é Conectado se <code>expiraEm &gt; agora UTC</code>; caso contrário, Expirado. ContaId, expiração e sandbox continuam presentes mesmo quando expirada.</p>
+    <p>Nem token, ciphertext, senha ou identificador do Admin de origem pertencem à resposta. Cache-Control no-store impede armazenar a resposta em caches que respeitam esse header.</p>
+  </section>
+  <section>
+    <h2>O que Conectado NÃO prova</h2>
+    <p>Este status é local: não garante que o provedor ainda aceite o token. Uma revogação remota pode acontecer antes da expiração registrada. A consulta não testa a integridade do conteúdo protegido, não renova e não habilita pagamentos.</p>
+    <p>Como não precisa do token, não deve descriptografá-lo nem fazer chamadas externas. Nos testes, um payload opaco fictício não pode ser aberto e a factory HTTP lança erro se alguém tentar usá-la.</p>
+  </section>
+  <section>
+    <h2>TDD e limites exatos</h2>
+    <p>Um relógio fixo permite testar um segundo antes, exatamente na expiração e um segundo depois, sem esperar tempo real. Expiração igual ao instante da consulta já significa Expirado.</p>
+    <p>O RED obtido foi correto: o endpoint ainda não existia e retornava 404, em vez dos status esperados. O Swagger também não conhecia a rota. API key ausente/inválida já era barrada pelo middleware, por isso esses dois casos passaram antes da implementação.</p>
+    <p>O terceiro caso aprovado verifica a fixture: falha simulada somente na consulta da entidade de conexão, não nas roles do startup. Isso separa problema do ambiente de comportamento ausente.</p>
+  </section>
+  <section>
+    <h2>Como a implementação foi dividida</h2>
+    <p>Controller verifica o identificador do Admin, define no-store e traduz a falha para HTTP. Serviço consulta os metadados e compara expiração com TimeProvider.GetUtcNow. Repositório usa AsNoTracking e Select para buscar somente conta, expiração e sandbox.</p>
+    <p>O contrato de leitura é separado do de gravação, preservando os consumidores existentes. MetadadosConexaoMercadoPago não é uma entidade persistida: é uma projeção imutável, sem tokens, sem tabela e sem migration nova. O DTO da Application define os quatro campos públicos.</p>
+    <p>Os mesmos 16 testes passaram sem mudanças. A suíte completa inclui o teste PostgreSQL anterior de migration/constraint; o HTTP deste endpoint foi testado com InMemory, não com PostgreSQL. Conhecer esse limite evita prometer mais cobertura do que existe.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que uma conta expirada retorna 200 e não 401?</summary><p>Porque o Admin foi autenticado corretamente. Expirado é estado da conexão Mercado Pago, não falha na autenticação do usuário.</p></details>
+    <details><summary>2. Por que sandbox é null sem conta, em vez de false?</summary><p>False indicaria uma conta de produção. Null expressa ausência de conexão e evita inventar um ambiente.</p></details>
+    <details><summary>3. Uma API key válida basta para ler os metadados?</summary><p>Não. Ela identifica o consumidor; a rota também exige JWT com role Admin e identificador de usuário.</p></details>
+    <details><summary>4. Precisamos abrir o ciphertext para mostrar a expiração?</summary><p>Não. A expiração já é um metadado separado. Descriptografar sem necessidade amplia a exposição e a dependência de chaves.</p></details>
+    <details><summary>5. Se o banco estiver indisponível, podemos responder NaoConectado?</summary><p>Não. Isso confundiria ausência de dados com falha de consulta. O contrato proposto retorna 503 MercadoPagoConsultaFalhou, sem detalhes internos.</p></details>
+    <details><summary>6. Os 125 anteriores verdes significavam suíte completa verde?</summary><p>Não. Aquela execução excluiu explicitamente os 16 novos casos. Depois da aprovação e implementação, uma execução sem esse filtro confirmou 141 aprovados e nenhum ignorado. Sempre confira os filtros e o total.</p></details>
+  </section>
+  <p><a href="05-protecao-de-tokens-e-persistencia.html">Voltar: proteção e persistência</a></p>
+</main></body>
+</html>

@@ -15,8 +15,27 @@ namespace BarberApp.Infrastructure.Payment;
 public sealed class ConexaoMercadoPagoService(
     IConfiguration configuration, TentativasMercadoPagoStore tentativas, TimeProvider timeProvider,
     MercadoPagoOAuthClient oauthClient, IConexaoMercadoPagoRepository repository,
-    IDataProtectionProvider protectionProvider) : IConexaoMercadoPagoService
+    IDataProtectionProvider protectionProvider,
+    IConsultaConexaoMercadoPagoRepository consultaRepository) : IConexaoMercadoPagoService
 {
+    public async Task<StatusConexaoMercadoPagoResponse> ConsultarStatusAsync(CancellationToken cancellationToken)
+    {
+        MetadadosConexaoMercadoPago? conexao;
+        try
+        {
+            conexao = await consultaRepository.ConsultarAsync(cancellationToken);
+        }
+        catch (NpgsqlException)
+        {
+            throw new MercadoPagoOperacaoException("MercadoPagoConsultaFalhou");
+        }
+
+        if (conexao is null)
+            return new StatusConexaoMercadoPagoResponse("NaoConectado", null, null, null);
+        var status = conexao.ExpiraEm > timeProvider.GetUtcNow() ? "Conectado" : "Expirado";
+        return new StatusConexaoMercadoPagoResponse(status, conexao.ContaId, conexao.ExpiraEm, conexao.Sandbox);
+    }
+
     public IniciarConexaoMercadoPagoResponse Iniciar(string administradorId)
     {
         var clientId = configuration["MercadoPago:ClientId"];

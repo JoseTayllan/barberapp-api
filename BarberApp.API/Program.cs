@@ -90,6 +90,7 @@ builder.Services.AddScoped<IAgendamentoRepository, AgendamentoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IPagamentoRepository, PagamentoRepository>();
 builder.Services.AddScoped<IConexaoMercadoPagoRepository, ConexaoMercadoPagoRepository>();
+builder.Services.AddScoped<IConsultaConexaoMercadoPagoRepository, ConexaoMercadoPagoRepository>();
 builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
 builder.Services.AddScoped<IDisponibilidadeRepository, DisponibilidadeRepository>();
 builder.Services.AddScoped<IExcecaoAgendaRepository, ExcecaoAgendaRepository>();

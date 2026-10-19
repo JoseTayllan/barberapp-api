@@ -564,7 +564,9 @@ dotnet test BarberApp.slnx --logger "console;verbosity=normal"
 dotnet test .\BarberApp.IntegrationTests\BarberApp.IntegrationTests.csproj --no-restore
 ```
 
-Ainda não existe projeto de testes unitários. O banco InMemory não substitui testes contra PostgreSQL para migrations e comportamentos específicos do provedor.
+`BarberApp.UnitTests` cobre invariantes das entidades; execute ambos os projetos pela solução. O banco InMemory não substitui testes contra PostgreSQL para migrations e comportamentos específicos do provedor.
+
+A consulta local `GET /api/integracoes/mercado-pago/status` está implementada: exige API key + JWT Admin identificado, retorna apenas status, contaId, expiraEm e sandbox, sem tokens. Estados: NaoConectado, Conectado ou Expirado. Não consulta o provedor nem garante validade remota. Após aprovação dos 16 testes, implementação sem alterá-los; suíte completa no WSL com PostgreSQL: 141 aprovados, zero falhas/ignorados. Build e formatação do recorte aprovados; diff aguarda revisão final. Veja [contrato](docs/pagamentos-mercado-pago.md) e [estudo](docs/estudos/06-status-local-da-conexao.html).
 
 O desenvolvimento segue TDD para tudo que for criado ou modificado: primeiro um teste falhando pelo motivo correto (RED), depois a implementação mínima (GREEN) e, por fim, refatoração com a suíte sempre verde. Quando houver etapa de revisão humana, os testes devem ser aprovados antes da implementação.
 

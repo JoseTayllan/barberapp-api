@@ -280,6 +280,12 @@ Deploy de homologação é reproduzível, observável e validado; falhas de depe
 - Build, lint e testes passam no CI.
 - Diff final e riscos são aprovados pelo mantenedor.
 
+## Incremento em revisão — status local Mercado Pago (05/10/2026)
+
+O incremento anterior foi revisado pelo mantenedor e enviado no commit `522e535`. Próxima especificação: GET Admin para consultar apenas status e metadados da conta única, sem ler tokens ou consultar o provedor. Estados: NaoConectado, Conectado e Expirado; expiração igual ao instante atual já conta como expirada.
+
+RED no WSL: 16 casos, 13 falhas por rota/contrato inexistentes e três aprovados. Especificação aprovada pelo mantenedor; implementação sem alterar os testes, somente consulta/projeção local e contrato HTTP. GREEN: 141 testes da solução aprovados, zero falhas/ignorados, incluindo PostgreSQL; build sem avisos/erros e lint do recorte aprovado. Sem nova migration, chamadas externas ou pagamentos reais. Diff aguarda revisão final; estudo em `docs/estudos/06-status-local-da-conexao.html`. Renovação/desconexão, gestão de chaves, reconexão concorrente e checkout/webhooks continuam pendentes.
+
 ## Definição de pronto do backend MVP
 
 O backend será considerado pronto quando:

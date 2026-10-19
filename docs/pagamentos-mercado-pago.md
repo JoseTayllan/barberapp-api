@@ -70,11 +70,11 @@ Migration e snapshot: `20261005172851_AddConexaoMercadoPago`. [SQL para revisão
 
 GREEN no WSL: 125 aprovados (22 unitários + 103 integração), zero falhas/ignorados, incluindo migration/persistência/constraint no PostgreSQL isolado. Testes anteriores e expectativas da troca preservados. A fixture nova foi corrigida para compartilhar o mesmo InMemory entre escopos, sem alterar contratos; o erro original era um banco diferente por resolução.
 
-Limites: não há refresh/revogação/desconexão, status para painel, política de reconexão concorrente, checkout/webhooks ou validação sandbox real. Não declarar pagamentos prontos. Perder as chaves inviabiliza ler ciphertext; falha de gravação após emissão de tokens pode exigir revogar a autorização no provedor e iniciar novamente. Resolver esses pontos antes de dinheiro real.
+Limites: não há refresh/revogação/desconexão, política de reconexão concorrente, checkout/webhooks ou validação sandbox real. O status local para painel foi implementado no incremento abaixo. Não declarar pagamentos prontos. Perder as chaves inviabiliza ler ciphertext; falha de gravação após emissão de tokens pode exigir revogar a autorização no provedor e iniciar novamente. Resolver esses pontos antes de dinheiro real.
 
 1. Emissão da URL e contexto temporário implementados; revisar diff.
 2. Callback e troca com PKCE implementados e testados com HTTP simulado; revisar diff.
-3. Tokens protegidos gravados. Próximos: status Admin, renovação, desconexão/revogação e coordenação de reconexões.
+3. Tokens protegidos gravados e status local Admin implementado. Próximos: renovação, desconexão/revogação e coordenação de reconexões.
 4. Gerar checkout: autorização por propriedade do agendamento, preço consultado no servidor e idempotência.
 5. Validar notificações e consultar status no provedor antes de atualizar pagamento.
 6. Exercitar ambiente de teste real, com aplicação cadastrada e URL HTTPS acessível.
@@ -82,6 +82,16 @@ Limites: não há refresh/revogação/desconexão, status para painel, política
 O callback externo não envia API key e já possui exceção restrita ao GET exato, protegida por state. Notificações ainda precisam de autenticação específica e exceção restrita/testada; nunca liberar genericamente rotas de pagamento.
 
 Nenhuma conta foi conectada, nenhuma credencial real foi solicitada e nenhuma chamada ou cobrança foi feita. O mock existente permanece identificado como mock enquanto o fluxo real não estiver completo.
+
+## Consulta de status local — implementada, diff em revisão
+
+`GET /api/integracoes/mercado-pago/status` requer API key e JWT Admin identificado; não compartilha a exceção pública do callback. Retorna 200 com exatamente `status`, `contaId`, `expiraEm`, `sandbox`, sem tokens/ciphertext ou Admin de origem.
+
+Sem registro: `NaoConectado` e metadados null. Registro com expiração futura: `Conectado`; expiração menor ou igual ao UTC atual: `Expirado`. Metadados da conta expirada são preservados. Estado é da instalação e pode ser consultado por outro Admin, mesmo com OAuth desabilitado ou sem credenciais do provedor.
+
+Consulta estritamente local, sem descriptografar, atualizar ou criar cliente HTTP externo. Não atesta validade remota ou capacidade de pagamento. Falha esperada do driver: 503 com título `MercadoPagoConsultaFalhou`, sem detalhes internos; sucesso e essa falha com no-store.
+
+Após RED de 13 falhas/três aprovações e aprovação humana, os mesmos 16 casos passaram sem alteração. GREEN da solução no WSL: 141 aprovados (22 unitários + 119 integração), zero falhas/ignorados, incluindo PostgreSQL. Build sem avisos/erros; lint do recorte aprovado. Repositório projeta apenas os três metadados com AsNoTracking, sem carregar ciphertext nem Admin; contrato de leitura separado preserva o de gravação. Não há migration nova. Veja [estudo 06](estudos/06-status-local-da-conexao.html).
 
 ## Referências oficiais
 

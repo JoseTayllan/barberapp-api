@@ -212,6 +212,15 @@ Fluxo esperado: o controller recebe/autoriza e delega; o service coordena o caso
 - Cliente HTTP dedicado tem timeout de 10s, limite de resposta de 64 KiB e redirects desabilitados; não há retry automático. Classes internas de tentativa/tokens não são records para evitar ToString com credenciais. Não ativar logging de bodies/queries ou EnableSensitiveDataLogging.
 - Renovação, desconexão/revogação, concorrência na substituição da conta, checkout/webhooks, frontend e sandbox remoto permanecem pendentes. A constraint evita duas linhas, mas não define qual reconexão concorrente vence. Antes de cobrança real, resolver esses gates. Os testes atuais não certificam o fluxo completo de pagamentos.
 
+### Status local da conexão — GREEN técnico, diff em revisão (05/10/2026)
+
+- Implementado após aprovação dos testes: `GET /api/integracoes/mercado-pago/status`, API key + JWT Admin com identificador, sem exceção de autenticação herdada do callback.
+- Resposta contém somente `status`, `contaId`, `expiraEm` e `sandbox`. Sem conta: `NaoConectado`, demais campos null. Com conta: `Conectado` se expiração > UTC agora; caso contrário `Expirado`, preservando os metadados. Não devolver Admin de origem, ciphertext ou tokens.
+- Trata-se de status local, não comprovação de token aceito pelo provedor: não criar cliente HTTP, descriptografar, renovar ou alterar dados. Funciona sem configurar/habilitar OAuth; qualquer Admin identificado consulta a conta única da instalação.
+- Sucesso e falha esperada de consulta usam no-store. Falha do driver na consulta: `503 MercadoPagoConsultaFalhou`, sem detalhes internos. Swagger exige ApiKey e Bearer juntos.
+- `IConsultaConexaoMercadoPagoRepository` separa leitura do contrato de gravação existente. Implementação EF projeta somente `MetadadosConexaoMercadoPago` com AsNoTracking; não seleciona ciphertext/Admin nem expõe IQueryable. DTO imutável fica na Application; service compara relógio e controller autoriza/traduz HTTP. Sem nova migration ou mudança nos consumidores do contrato de gravação.
+- RED: 16 executados no WSL, 13 falhas esperadas e três aprovados. Após aprovação, GREEN dos mesmos 16, sem alterar testes; suíte completa com PostgreSQL: 141 aprovados (22 unitários + 119 integração), zero falhas/ignorados. Build sem avisos/erros; lint dos oito arquivos C# do recorte aprovado, não lint global. Diff aguarda aprovação final; não é autorização de uso real.
+
 ### Repositórios, EF Core e banco
 
 - Interfaces ficam no `Domain`; implementações, em `Infrastructure/Repositories`.

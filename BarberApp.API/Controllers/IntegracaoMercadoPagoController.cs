@@ -11,6 +11,23 @@ namespace BarberApp.API.Controllers;
 [Authorize(Roles = "Admin")]
 public sealed class IntegracaoMercadoPagoController(IConexaoMercadoPagoService service) : ControllerBase
 {
+    [HttpGet("status")]
+    public async Task<ActionResult<StatusConexaoMercadoPagoResponse>> Status(CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (string.IsNullOrWhiteSpace(User.FindFirstValue(ClaimTypes.NameIdentifier)))
+            return Unauthorized();
+
+        try
+        {
+            return Ok(await service.ConsultarStatusAsync(cancellationToken));
+        }
+        catch (MercadoPagoOperacaoException exception) when (exception.Codigo == "MercadoPagoConsultaFalhou")
+        {
+            return Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: exception.Codigo);
+        }
+    }
+
     [AllowAnonymous]
     [HttpGet("callback")]
     public async Task<ActionResult<MercadoPagoCallbackResponse>> Callback(
