@@ -350,9 +350,14 @@ public sealed class MercadoPagoTokenRenewalTests
     private sealed class FalhaGravacao(Cenario fixture) : SaveChangesInterceptor
     {
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
-            InterceptionResult<int> result, CancellationToken cancellationToken = default) =>
-            fixture.FalharGravacao ? throw new DbUpdateException("PRIVATE-FAILURE-ONLY-FOR-TESTS")
-                : ValueTask.FromResult(result);
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            // A falha deste cenário é na substituição dos tokens, não no registro prévio de segurança.
+            var trocaTokens = eventData.Context!.ChangeTracker.Entries<ConexaoMercadoPago>()
+                .Any(entry => entry.Property(row => row.TokensProtegidos).IsModified);
+            return fixture.FalharGravacao && trocaTokens
+                ? throw new DbUpdateException("PRIVATE-FAILURE-ONLY-FOR-TESTS") : ValueTask.FromResult(result);
+        }
     }
 
     private sealed class ProtecaoControlada(Cenario fixture) : IDataProtectionProvider

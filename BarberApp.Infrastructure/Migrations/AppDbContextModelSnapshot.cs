@@ -147,6 +147,11 @@ namespace BarberApp.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("ExpiraEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("RequerReautorizacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("Sandbox")
                         .HasColumnType("boolean");
 

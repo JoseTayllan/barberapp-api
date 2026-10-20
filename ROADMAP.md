@@ -298,6 +298,12 @@ Renovação manual aprovada em `9f760ae`. Nove novos casos HTTP propõem primeir
 
 RED funcional: oito falhas e um aprovado. Especificação aprovada e implementada sem alterar os testes: coordenador singleton com escopo descartável, consulta de state antes de admissão e consumo depois; proteção até concluir escrita/falha. GREEN no WSL com PostgreSQL isolado: 178 aprovados (22 unitários + 156 integração), zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Sem migration ou chamada real. Diff final em revisão. Escopo: uma instância da API. Coordenação distribuída, efeitos remotos incertos e recuperação de rotação sem persistência continuam pendentes. Estudo: `docs/estudos/08-concorrencia-e-ordem-das-operacoes.html`.
 
+## Incremento em revisão — recuperação durável (20/10/2026)
+
+Concorrência local aprovada em `0d485a8`. Mantenedor aprovou mudar a regra após resultado incerto e revisar testes conflitantes. Proposta: persistir RequerReautorizacao antes de enviar refresh; impedir chamada se o registro falhar; não apresentar credenciais incertas como Conectado; bloquear novas renovações até tokens novos serem salvos ou uma nova autorização ser concluída e persistida.
+
+12 testes HTTP novos, um PostgreSQL novo e dois casos antigos evoluídos. RED: 191 executados, 177 aprovados/14 falhos. Especificação aprovada; implementação sem alterar esses testes. GREEN completo no WSL com PostgreSQL isolado: 191 aprovados, zero falhas/ignorados; build/lint do recorte aprovados e EF sem mudanças pendentes. Marcador persistido e limpeza junto dos novos tokens; migration `20261020213112_AddEstadoRecuperacaoMercadoPago` aplicada só ao banco de testes, com SQL revisado. Banco da aplicação inalterado; rollback exige avaliar perda da proteção. InMemory compartilhado verifica novo host, não crash real ou keyring. Coordenação distribuída e pagamentos completos permanecem pendentes. Diff final em revisão. Estudo: `docs/estudos/09-recuperacao-duravel-e-testes-vivos.html`.
+
 ## Definição de pronto do backend MVP
 
 O backend será considerado pronto quando:

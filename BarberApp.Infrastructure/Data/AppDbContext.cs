@@ -35,6 +35,7 @@ namespace BarberApp.Infrastructure.Data
                 e.Property(c => c.Id).ValueGeneratedNever();
                 e.Property(c => c.AdministradorId).IsRequired().HasMaxLength(450);
                 e.Property(c => c.TokensProtegidos).IsRequired();
+                e.Property(c => c.RequerReautorizacao).HasDefaultValue(false);
             });
 
             // Barbeiro

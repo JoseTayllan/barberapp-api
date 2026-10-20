@@ -15,7 +15,8 @@ public sealed class RenovacaoMercadoPagoService(
     IConfiguration configuration, ICredenciaisConexaoMercadoPagoRepository credenciaisRepository,
     IConexaoMercadoPagoRepository repository, IDataProtectionProvider protectionProvider,
     MercadoPagoOAuthClient oauthClient, TimeProvider timeProvider,
-    CoordenadorOperacoesMercadoPago coordenador) : IRenovacaoMercadoPagoService
+    CoordenadorOperacoesMercadoPago coordenador,
+    IPendenciaConexaoMercadoPagoRepository pendenciaRepository) : IRenovacaoMercadoPagoService
 {
     public async Task<StatusConexaoMercadoPagoResponse> RenovarAsync(CancellationToken cancellationToken)
     {
@@ -42,6 +43,8 @@ public sealed class RenovacaoMercadoPagoService(
         }
         if (conexao is null)
             throw new MercadoPagoOperacaoException("MercadoPagoNaoConectado");
+        if (conexao.RequerReautorizacao)
+            throw new MercadoPagoOperacaoException("MercadoPagoReautorizacaoNecessaria");
         if (conexao.Sandbox != sandbox)
             throw new MercadoPagoOperacaoException("MercadoPagoAmbienteIncompativel");
 
@@ -58,6 +61,17 @@ public sealed class RenovacaoMercadoPagoService(
             or KeyNotFoundException or InvalidOperationException)
         {
             throw new MercadoPagoOperacaoException("MercadoPagoCredenciaisIndisponiveis");
+        }
+
+        // Confirmar a escrita antes do envio permite que outro host reconheça um resultado incerto.
+        try
+        {
+            if (!await pendenciaRepository.RegistrarPendenciaAsync(cancellationToken))
+                throw new MercadoPagoOperacaoException("MercadoPagoPendenciaNaoRegistrada");
+        }
+        catch (Exception exception) when (exception is DbUpdateException or NpgsqlException)
+        {
+            throw new MercadoPagoOperacaoException("MercadoPagoPendenciaNaoRegistrada");
         }
 
         var tokens = await oauthClient.RenovarAsync(clientId, clientSecret, refreshToken, sandbox, cancellationToken);

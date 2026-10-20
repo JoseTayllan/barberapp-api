@@ -95,7 +95,7 @@ public sealed class MercadoPagoConcurrencyTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Renovar_DeveLiberarOperacaoAposFalha_SemBloquearNovasRequisicoes(bool saveFailure)
+    public async Task Renovar_DeveLiberarExclusividadeAposFalha_MasExigirNovaAutorizacao(bool saveFailure)
     {
         using var scenario = new Cenario(saveFailure);
         await scenario.GravarAsync();
@@ -123,9 +123,15 @@ public sealed class MercadoPagoConcurrencyTests
         scenario.FalharGravacao = false;
         using var nextRequest = CriarRequest("renovacao");
         using var next = await scenario.Client.SendAsync(nextRequest).WaitAsync(Guard);
-        Assert.Equal(HttpStatusCode.OK, next.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, next.StatusCode);
+        using var error = JsonDocument.Parse(await next.Content.ReadAsStringAsync());
+        Assert.Equal("MercadoPagoReautorizacaoNecessaria", error.RootElement.GetProperty("title").GetString());
+        Assert.Equal(1, scenario.Provider.Chamadas);
+        // A exclusividade é liberada para permitir recuperação, não para reutilizar refresh incerto.
+        using var recoveryRequest = CriarRequest("callback", scenario.Iniciar("recovery-admin"));
+        using var recovery = await scenario.Client.SendAsync(recoveryRequest).WaitAsync(Guard);
+        Assert.Equal(HttpStatusCode.OK, recovery.StatusCode);
         Assert.Equal(2, scenario.Provider.Chamadas);
-        // O provedor é simulado: esta recuperação não comprova validade remota após rotação sem gravação.
     }
 
     [Fact]
@@ -266,6 +272,10 @@ public sealed class MercadoPagoConcurrencyTests
                 InterceptionResult<int> result, CancellationToken cancellationToken = default)
             {
                 if (!scenario.GravarComPausa) return result;
+                var trocaTokens = eventData.Context!.ChangeTracker.Entries<ConexaoMercadoPago>()
+                    .Any(entry => entry.Property(row => row.TokensProtegidos).IsModified);
+                // Pausa/falha após emissão de tokens, preservando o teste da janela final de gravação.
+                if (!trocaTokens) return result;
                 if (pauseAtSave && Interlocked.Increment(ref scenario._saves) == 1)
                 {
                     scenario.Entrou.TrySetResult(true);

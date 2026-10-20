@@ -3,6 +3,7 @@ using BarberApp.Infrastructure.Data;
 using BarberApp.Infrastructure.Repositories;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Npgsql;
 using Xunit;
 
@@ -10,6 +11,40 @@ namespace BarberApp.IntegrationTests.Payments;
 
 public sealed class MercadoPagoPostgresTests
 {
+    [PostgresFact]
+    public async Task Recuperacao_DevePersistirMarcadorNaoNuloComDefaultSeguro_EntreContextosPostgres()
+    {
+        var connection = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable("BARBERAPP_TEST_POSTGRES"));
+        Assert.StartsWith("barberapp_test_", connection.Database);
+        Assert.Equal("/var/run/postgresql", connection.Host);
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection.ConnectionString).Options;
+        await using var context = new AppDbContext(options);
+        var marker = context.Model.FindEntityType(typeof(ConexaoMercadoPago))!.FindProperty("RequerReautorizacao");
+        Assert.NotNull(marker);
+        Assert.Equal(typeof(bool), marker.ClrType);
+        Assert.False(marker.IsNullable);
+        await context.Database.MigrateAsync();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        // INSERT legado sem marcador deve continuar válido; migration precisa definir default false.
+        await context.Database.ExecuteSqlRawAsync("""
+            INSERT INTO "ConexoesMercadoPago" ("Id", "ContaId", "AdministradorId", "TokensProtegidos", "ExpiraEm", "Sandbox")
+            VALUES (1, 123456, 'ONLY-FOR-TESTS-ADMIN', 'ONLY-FOR-TESTS-OPAQUE-CIPHERTEXT', '2030-01-01T00:00:00Z', true)
+            """);
+        var row = await context.ConexoesMercadoPago.SingleAsync();
+        Assert.False(context.Entry(row).Property<bool>("RequerReautorizacao").CurrentValue);
+        context.Entry(row).Property<bool>("RequerReautorizacao").CurrentValue = true;
+        await context.SaveChangesAsync();
+
+        var freshOptions = new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql(context.Database.GetDbConnection()).Options;
+        await using var fresh = new AppDbContext(freshOptions);
+        await fresh.Database.UseTransactionAsync(transaction.GetDbTransaction());
+        var saved = await fresh.ConexoesMercadoPago.SingleAsync();
+        Assert.True(fresh.Entry(saved).Property<bool>("RequerReautorizacao").CurrentValue);
+        await transaction.RollbackAsync();
+    }
+
     [PostgresFact]
     public async Task Migration_DevePersistirCiphertextEImpedirSegundaInstalacao_NoPostgres()
     {

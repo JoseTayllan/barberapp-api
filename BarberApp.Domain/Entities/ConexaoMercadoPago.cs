@@ -8,6 +8,7 @@ public class ConexaoMercadoPago
     public string TokensProtegidos { get; private set; } = null!;
     public DateTimeOffset ExpiraEm { get; private set; }
     public bool Sandbox { get; private set; }
+    public bool RequerReautorizacao { get; private set; }
 
     protected ConexaoMercadoPago() { }
 
@@ -24,6 +25,8 @@ public class ConexaoMercadoPago
         Sandbox = sandbox;
     }
 
+    public void RegistrarPendenciaRenovacao() => RequerReautorizacao = true;
+
     public void Atualizar(ConexaoMercadoPago novaConexao)
     {
         ArgumentNullException.ThrowIfNull(novaConexao);
@@ -32,5 +35,6 @@ public class ConexaoMercadoPago
         TokensProtegidos = novaConexao.TokensProtegidos;
         ExpiraEm = novaConexao.ExpiraEm;
         Sandbox = novaConexao.Sandbox;
+        RequerReautorizacao = novaConexao.RequerReautorizacao;
     }
 }

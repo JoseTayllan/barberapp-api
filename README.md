@@ -578,6 +578,12 @@ O desenvolvimento segue TDD para tudo que for criado ou modificado: primeiro um 
 
 A renovação manual foi aprovada e registrada em `9f760ae`. Após aprovação dos nove testes de concorrência, implementada exclusividade local entre renovação e callback até terminar a gravação. Concorrente recebe 409 MercadoPagoOperacaoEmAndamento sem chamar o provedor; callback rejeitado antes do envio mantém state válido para nova tentativa manual. Status permanece disponível. GREEN no WSL com PostgreSQL isolado: 178 aprovados, zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado, sem alterar os testes. Não é proteção entre múltiplas instâncias nem recuperação de falha remota. Sem nova migration, chamadas reais ou pagamentos habilitados. Veja [estudo 08](docs/estudos/08-concorrencia-e-ordem-das-operacoes.html); diff aguarda revisão final.
 
+### Recuperação após renovação incerta — implementação em revisão
+
+O incremento local de concorrência foi aprovado e registrado em `0d485a8`. Após aprovação dos testes, implementada recuperação conservadora: registrar pendência antes de chamar o provedor, mostrar ReautorizacaoNecessaria e bloquear renovação enquanto houver incerteza, inclusive em novo host. Nova autorização concluída e persistida permite recuperar. A sinalização é preventiva e não comprova revogação remota; sucesso da própria renovação também limpa a pendência.
+
+Os testes revisados foram aprovados e não foram alterados durante GREEN. Suíte completa no WSL com PostgreSQL isolado: 191 aprovados, zero falhas/ignorados; build sem avisos/erros, lint do recorte aprovado e modelo EF consistente. Veja [estudo 09](docs/estudos/09-recuperacao-duravel-e-testes-vivos.html). Migration `20261020213112_AddEstadoRecuperacaoMercadoPago` validada apenas no banco de testes: revise [SQL](docs/sql/20261020213112_AddEstadoRecuperacaoMercadoPago.sql), confirme o baseline e planeje backup antes de aplicar ao banco da aplicação. Reversão perde o marcador e pode reativar credenciais incertas; não executar automaticamente. Sem validação de crash real/keyring, coordenação distribuída ou pagamentos reais. Diff aguarda aprovação final.
+
 ## 👨‍💻 Autor: José Tyllan Pinto Almeida
 
 Desenvolvido como projeto de portfólio para demonstrar domínio de:

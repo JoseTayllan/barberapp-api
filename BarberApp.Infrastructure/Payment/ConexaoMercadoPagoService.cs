@@ -33,7 +33,8 @@ public sealed class ConexaoMercadoPagoService(
 
         if (conexao is null)
             return new StatusConexaoMercadoPagoResponse("NaoConectado", null, null, null);
-        var status = conexao.ExpiraEm > timeProvider.GetUtcNow() ? "Conectado" : "Expirado";
+        var status = conexao.RequerReautorizacao ? "ReautorizacaoNecessaria"
+            : conexao.ExpiraEm > timeProvider.GetUtcNow() ? "Conectado" : "Expirado";
         return new StatusConexaoMercadoPagoResponse(status, conexao.ContaId, conexao.ExpiraEm, conexao.Sandbox);
     }
 

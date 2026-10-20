@@ -132,6 +132,24 @@ Coordenador singleton admite atomicamente por CompareExchange e devolve escopo I
 
 Limites: não é lock distribuído, transação remota/local, controle sobre outro processo ou garantia de token válido após erro. O provedor falso aceita a solicitação seguinte em testes de liberação apenas para provar que a exclusão não ficou presa; isso não comprova recuperação real de refresh rotacionado. Coordenação entre processos e reconciliação de resultados incertos exigem outros testes antes de uso real.
 
+## Recuperação durável — GREEN técnico, diff em revisão (20/10/2026)
+
+Evolução aprovada pelo mantenedor após o commit `0d485a8`, implementada sem alterar os testes aprovados. Marcador bool interno RequerReautorizacao, não nulo, default false, sem alterar os quatro campos públicos da resposta. Consumidores precisam reconhecer o novo valor de status; clientes com enum fechado devem ser adaptados ou ter contrato versionado antes de uso.
+
+Antes de enviar refresh ao provedor, registrar a pendência em armazenamento persistido, sem modificar ciphertext anterior. Se falhar, 503 MercadoPagoPendenciaNaoRegistrada e nenhuma chamada externa. Enquanto marcada, status retorna ReautorizacaoNecessaria e outra renovação retorna 409 MercadoPagoReautorizacaoNecessaria, sem retry. A sinalização preventiva aparece desde o registro, inclusive durante uma renovação ainda em andamento, e não significa que o provedor confirmou revogação.
+
+Sucesso da renovação limpa o marcador junto dos tokens novos salvos. Timeout, erro 5xx, resposta inválida ou falha ao proteger/persistir mantém a pendência para o próximo host. Recuperação por novo OAuth só libera depois da gravação bem-sucedida; access_denied ou outra falha preserva a pendência. Não limpar o indicador em uma escrita anterior à dos tokens, pois a etapa seguinte pode falhar.
+
+O mantenedor autorizou revisar os dois casos antigos que permitiam renovar depois de falha: agora exigem bloqueio de reutilização e aceitação de recuperação via callback, mantendo a prova de liberação da exclusividade. Interceptors foram refinados para pausar/falhar especificamente na alteração do ciphertext, separando-a do novo registro prévio. Não houve enfraquecimento das expectativas de sigilo, preservação ou erros.
+
+Após RED com 14 falhas esperadas e aprovação, GREEN completo no WSL: 191 aprovados (22 unitários + 169 integração), zero falhas/ignorados; build sem avisos/erros, lint do recorte aprovado e modelo EF sem mudanças pendentes. Novos cenários verificam host recriado com armazenamento InMemory compartilhado; isso não prova crash de processo, durabilidade em disco ou keyring. O caso PostgreSQL confirmou tipo/default para INSERT legado e leitura do marcador true por outro contexto na mesma transação, revertendo os dados ao final. Nenhuma conta real acessada. Veja [estudo 09](estudos/09-recuperacao-duravel-e-testes-vivos.html).
+
+IPendenciaConexaoMercadoPagoRepository registra somente o marcador, com SaveChangesAsync concluído antes do envio. Registro ausente ou já marcado não é considerado nova pendência registrada. Renovação verifica o marcador antes de usar refresh; status projeta marcador/metadados, sem ciphertext. Tanto renovação bem-sucedida quanto callback bem-sucedido usam a gravação existente para atualizar tokens e remover a pendência na mesma escrita, nunca em um salvamento prévio separado.
+
+Migration `20261020213112_AddEstadoRecuperacaoMercadoPago`: [SQL revisado](sql/20261020213112_AddEstadoRecuperacaoMercadoPago.sql), um ADD de boolean NOT NULL DEFAULT FALSE e histórico EF. Não idempotente; requer a migration anterior aplicada. Aplicada somente ao banco isolado WSL, nunca ao banco da aplicação. Default false mantém compatibilidade estrutural, não comprova validade remota dos registros antigos. Down remove a coluna: revisar backup e risco de apagar informação de incerteza antes de qualquer reversão.
+
+Riscos: política conservadora pode exigir nova autorização mesmo quando o provedor não processou a solicitação. Não se tenta reconciliar/repetir uma rotação incerta automaticamente. Futura migration/rollback, backup de chaves, crash real, admissão entre processos e integração de checkout/webhooks permanecem gates antes de pagamentos reais. Remover o marcador por rollback pode reativar credenciais incertas e exige avaliação explícita.
+
 ## Referências oficiais
 
 - [Authorization code, state e PKCE](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation).

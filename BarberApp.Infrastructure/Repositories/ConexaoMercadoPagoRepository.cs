@@ -6,14 +6,25 @@ using Microsoft.EntityFrameworkCore;
 namespace BarberApp.Infrastructure.Repositories;
 
 public sealed class ConexaoMercadoPagoRepository(AppDbContext context)
-    : IConexaoMercadoPagoRepository, IConsultaConexaoMercadoPagoRepository, ICredenciaisConexaoMercadoPagoRepository
+    : IConexaoMercadoPagoRepository, IConsultaConexaoMercadoPagoRepository, ICredenciaisConexaoMercadoPagoRepository,
+        IPendenciaConexaoMercadoPagoRepository
 {
+    public async Task<bool> RegistrarPendenciaAsync(CancellationToken cancellationToken)
+    {
+        var atual = await context.ConexoesMercadoPago.SingleOrDefaultAsync(cancellationToken);
+        if (atual is null || atual.RequerReautorizacao) return false;
+        atual.RegistrarPendenciaRenovacao();
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public Task<ConexaoMercadoPago?> ObterCredenciaisAsync(CancellationToken cancellationToken) =>
         context.ConexoesMercadoPago.AsNoTracking().SingleOrDefaultAsync(cancellationToken);
 
     public Task<MetadadosConexaoMercadoPago?> ConsultarAsync(CancellationToken cancellationToken) =>
         context.ConexoesMercadoPago.AsNoTracking()
-            .Select(conexao => new MetadadosConexaoMercadoPago(conexao.ContaId, conexao.ExpiraEm, conexao.Sandbox))
+            .Select(conexao => new MetadadosConexaoMercadoPago(
+                conexao.ContaId, conexao.ExpiraEm, conexao.Sandbox, conexao.RequerReautorizacao))
             .SingleOrDefaultAsync(cancellationToken);
 
     public async Task SalvarAsync(ConexaoMercadoPago conexao, CancellationToken cancellationToken)

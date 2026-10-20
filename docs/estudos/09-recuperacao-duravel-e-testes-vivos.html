@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 09 — Recuperação durável e testes vivos</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Lembrar que não sabemos é uma proteção</h1>
+  <p>20/10/2026 — Implementado após aprovação dos testes, sem alterá-los. RED: 177 aprovados/14 falhos; GREEN completo: 191 aprovados, zero falhas/ignorados, incluindo PostgreSQL isolado. Build/lint do recorte e consistência EF aprovados. Diff aguarda revisão final; nenhuma chamada real ou migration no banco da aplicação.</p>
+  <section>
+    <h2>O problema que o lock não resolve</h2>
+    <p>O provedor pode processar uma rotação, mas a resposta se perder ou o salvamento local falhar. Liberar o coordenador impede travamento; não recupera a credencial nova nem prova validade da antiga.</p>
+    <p>Se guardarmos a incerteza só no singleton, outro host esquecerá o problema. Por isso a proposta registra a pendência no armazenamento antes de enviar o refresh. Se não consegue registrar, não envia.</p>
+  </section>
+  <section>
+    <h2>Uma sinalização conservadora</h2>
+    <p>O marcador interno implementado é RequerReautorizacao, bool não nulo com default false. True significa que a reutilização das credenciais não está confirmada. Não é um token, uma senha ou prova de revogação.</p>
+    <p>Enquanto marcado, GET status retorna ReautorizacaoNecessaria com os mesmos quatro campos; renovação retorna 409 sem enviar o refresh antigo. Essa indicação já vale durante a operação em andamento. Se ela concluir e salvar tokens novos, volta a Conectado sem exigir outra autorização.</p>
+    <p>Se a operação falhar e a pendência permanecer, o Admin inicia novo OAuth. Só callback concluído com tokens novos salvos libera o registro. Recusar ou falhar não limpa a proteção.</p>
+    <p>O custo dessa política é exigir nova autorização em algumas situações em que o provedor talvez não tenha feito nada. Evitamos transformar uma suposição em permissão de uso.</p>
+  </section>
+  <section>
+    <h2>Por que mudamos testes que já estavam aprovados?</h2>
+    <p>Porque a regra mudou com aprovação explícita do mantenedor. Antes testávamos que o lock era liberado e uma nova renovação podia continuar. Agora ele precisa ser liberado para recuperação, mas o refresh incerto não pode ser reutilizado.</p>
+    <p>Não retiramos a asserção para obter verde: acrescentamos o bloqueio 409 e a recuperação por callback. O código atual falha nessa nova expectativa, formando um RED legítimo.</p>
+    <p>Também refinamos os interceptors: falhar ao gravar tokens depois da resposta é diferente de falhar ao registrar pendência antes do envio. Os testes anteriores continuam exigindo preservação e sigilo; um novo caso cobre especificamente falha antes do envio.</p>
+  </section>
+  <section>
+    <h2>O que estamos provando</h2>
+    <p>12 cenários HTTP novos: registro prévio, falha desse registro, cinco falhas após envio, sucesso e quatro caminhos de recuperação. Dois casos de concorrência foram evoluídos. Um caso PostgreSQL novo especifica marcador não nulo, default compatível com INSERT legado e leitura por outro contexto.</p>
+    <p>Os hosts simulados usam bancos compartilhados por InMemoryDatabaseRoot e novas instâncias de serviços. Isso detecta uma flag guardada só no singleton, mas não prova reinício real do sistema operacional ou persistência de chaves.</p>
+    <p>No RED, o teste PostgreSQL parava no marcador ausente do modelo. Após implementação e migration, confirmou bool não nulo, default false para INSERT legado e leitura true por outro contexto. Dados revertidos por transação; schema de testes mantido.</p>
+    <p>GREEN completo: 22 unitários e 169 integração aprovados, zero falhas/ignorados. Os mesmos quatro arquivos de testes foram mantidos durante a implementação. Isso não comprova crash real ou recuperação de chaves de criptografia.</p>
+  </section>
+  <section>
+    <h2>Como o código ficou</h2>
+    <p>A entidade possui RequerReautorizacao com setter privado. RegistrarPendenciaRenovacao altera somente esse estado. O repositório específico aguarda SaveChangesAsync antes que o serviço envie o refresh; falha nessa escrita impede a chamada.</p>
+    <p>A projeção interna de metadados inclui o marcador, mas continua sem ciphertext. O DTO público mantém os quatro campos: o novo valor de status tem precedência sobre a expiração.</p>
+    <p>Na conclusão, a nova entidade carrega tokens protegidos e flag false. Atualizar copia ambos e SaveChangesAsync os grava juntos. Não há uma chamada separada para limpar o marcador antes dos tokens.</p>
+    <p>A migration acrescenta uma coluna boolean NOT NULL DEFAULT FALSE. O SQL foi revisado e aplicado apenas no banco isolado. Remover essa coluna em rollback apaga o aviso de incerteza: não é uma reversão operacionalmente neutra.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que marcar antes da chamada externa?</summary><p>Porque o processo pode parar depois do envio e antes de conseguir registrar a falha. A pendência prévia permite que o próximo host trate o resultado como incerto.</p></details>
+    <details><summary>2. Se o banco falhar antes do envio, ainda mandamos o refresh?</summary><p>Não. Sem conseguir persistir a proteção, responderemos 503 e não chamaremos o provedor.</p></details>
+    <details><summary>3. Liberar o lock significa liberar a credencial?</summary><p>Não. O lock local libera a execução de outra operação; o marcador persistido continua bloqueando o uso de credenciais incertas.</p></details>
+    <details><summary>4. Posso limpar o marcador e salvar os tokens depois?</summary><p>Não. Se o salvamento seguinte falhar, a aplicação apresentaria dados antigos como seguros. A liberação depende dos tokens novos persistidos com sucesso.</p></details>
+    <details><summary>5. Testes nunca podem ser alterados?</summary><p>Durante GREEN, não os enfraquecemos para aceitar o código. Quando o requisito evolui, mudanças específicas e revisadas podem redefinir a especificação; a autorização e as diferenças precisam ficar registradas.</p></details>
+    <details><summary>6. Por que rollback dessa coluna pode ser perigoso?</summary><p>Porque apagar o marcador elimina a informação de incerteza. Uma versão antiga poderia voltar a usar credenciais cujo resultado remoto não é conhecido. Exige avaliação e procedimento explícitos.</p></details>
+  </section>
+  <p><a href="08-concorrencia-e-ordem-das-operacoes.html">Voltar: concorrência local</a></p>
+</main></body>
+</html>
