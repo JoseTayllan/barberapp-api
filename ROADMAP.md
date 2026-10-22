@@ -335,3 +335,13 @@ Mantenedor confirmou backup, aplicação das duas migrations Mercado Pago no ban
 Seis DataProtectionProcessTests novos, com executável auxiliar exclusivo de testes, verificam persistência entre processos, cópia no mesmo contexto e rejeição por chave ausente/aplicação/propósito/ciphertext incompatíveis. Testes passaram de primeira por caracterizarem Data Protection já existente; sem RED artificial nem mudança da implementação da API. GREEN WSL: 197 aprovados (22 unitários + 175 integração), zero falhas/ignorados; lint dos dois novos C# aprovado. Material em docs/estudos/10-chaves-processos-e-limites.html. Diff aguarda revisão.
 
 Ainda pendentes: round-trip com configuração efetiva da API Windows, permissões dos arquivos individuais, procedimento de backup/recuperação das chaves reais e efeito de mudança de identidade/caminho. O probe usa configuração explícita e keyring de teste; WSL não valida DPAPI. Não habilitar produção/conta real nem declarar o gate operacional concluído com esta prova parcial.
+
+## Diagnóstico pelo contêiner da API — GREEN, diff em revisão (22/10/2026)
+
+Mantenedor aprovou o diff do estudo 10. Depois forneceu log de inicialização confirmando diretório padrão do perfil e DPAPI usados pela API. Ainda não houve recuperação real de tokens.
+
+Quatro testes novos especificam modo do auxiliar que inicializa o Program.cs com dependências isoladas, resolve o provider registrado pela API e preserva seu discriminador padrão. Testes em processos separados: mesmo content root recupera; outro root/propósito ou keyring vazio rejeita. Apenas configuração/chaves fictícias, sem implementação nesta fase.
+
+WSL inicial: quatro falhas no modo ausente do auxiliar, antes da etapa criptográfica; não é bug comprovado do provider nem RED funcional da API. Suíte nessa fase: 201 executados, 197 aprovados/quatro falhos, zero ignorados. Após aprovação, implementação somente do auxiliar, sem alterar os quatro testes ou a API: WebApplicationFactory inicia Program.cs com dependências isoladas; provider/discriminador resolvidos de ApiServices. Sem provider efêmero ou SetApplicationName.
+
+GREEN final: 201 aprovados (22 unitários + 179 integração), zero falhas/ignorados, PostgreSQL isolado. Build sem erros/avisos; formatação dos quatro C# aprovada. Cópia do runtime do auxiliar restrita a binários/metadados, sem appsettings, validada em configuração nova dos projetos de testes. Execução no perfil Windows e política de backup continuam gates separados, sem autorização automática para gerar/alterar chaves reais. Não executar o auxiliar contra o perfil real com este contrato. Estudo 11 atualizado; diff final em revisão.

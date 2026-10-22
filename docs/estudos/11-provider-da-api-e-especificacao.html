@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 11 — Provider da API e especificação do diagnóstico</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Testar o componente não é testar a composição da aplicação</h1>
+  <p>22/10/2026 · Implementação do auxiliar após aprovação dos testes, mantidos intactos. Suíte final WSL com PostgreSQL isolado: 201 aprovados, nenhuma falha ou teste ignorado. Build sem avisos/erros e formatação do recorte aprovada. Nenhum código da API foi alterado; diff final aguardando revisão.</p>
+  <section>
+    <h2>A evidência nova</h2>
+    <p>O mantenedor habilitou temporariamente logs informativos de Data Protection. A própria API informou uso da pasta padrão do perfil Windows e DPAPI para proteção em disco. Isso liga a pasta inspecionada à execução observada; ainda não prova recuperação de ciphertext após reinício.</p>
+    <p>O ajuste de log foi apenas na sessão do PowerShell. Não precisamos imprimir segredos, XML das chaves ou configuração de conexão.</p>
+  </section>
+  <section>
+    <h2>O que muda em relação ao estudo 10?</h2>
+    <p>Antes, o auxiliar criava DataProtectionProvider diretamente e escolhia um nome de aplicação fictício. Agora ApiProbeFactory inicia o entry point real via WebApplicationFactory; ApiProtectionScenario resolve IDataProtectionProvider no contêiner montado pelo Program.cs. Esse contêiner é o composition root: o lugar que conecta os serviços e suas dependências.</p>
+    <p>O diagnóstico troca só dependências externas por equivalentes de teste: banco InMemory, configuração fictícia e diretório temporário das chaves. Não troca o provider por um efêmero nem define nome de aplicação para mascarar o comportamento padrão. Não executa a API com segredos reais.</p>
+  </section>
+  <section>
+    <h2>Os quatro comportamentos especificados</h2>
+    <ol>
+      <li>Processo A protege e termina; B usa mesmo content root, keyring e propósito e recupera.</li>
+      <li>Com as mesmas chaves, outro content root deve isolar a aplicação e rejeitar o texto.</li>
+      <li>Com mesmo root, outro propósito deve rejeitar o texto.</li>
+      <li>Sem as chaves, a recuperação deve falhar sem gerar substitutas.</li>
+    </ol>
+    <p>No padrão ASP.NET Core atual, content root participa da identidade de isolamento. A API ainda não define nome explícito. Não mudar isso como detalhe cosmético: pode tornar tokens anteriores ilegíveis.</p>
+  </section>
+  <section>
+    <h2>Saída verificável, sem segredo</h2>
+    <p>O contrato exige JSON com exatamente quatro campos: <code>origem</code>, <code>status</code>, <code>processoId</code> e <code>identidadeHash</code>. A origem deve ser ApiServices; o hash representa o discriminador da aplicação, não uma chave de criptografia.</p>
+    <p>O teste confirma o ID do processo filho e compara hashes entre roots. Nenhum payload ou material de chave deve ser impresso. O limite de 30 segundos protege contra travamento; a ordem depende de aguardar o término, não de sleep.</p>
+  </section>
+  <section>
+    <h2>O que as falhas iniciais realmente diziam?</h2>
+    <p>Antes da aprovação, o auxiliar só aceitava proteger/recuperar do componente isolado. Os testes novos enviavam api-proteger/api-recuperar e recebiam código 2, de modo não suportado. Todos falhavam nessa primeira etapa; nenhum chegava a testar a criptografia da API.</p>
+    <p>Era uma especificação pendente da ferramenta de diagnóstico, não RED funcional do BarberApp e não prova de bug no .NET. Após a aprovação, implementamos o auxiliar sem alterar o teste; os quatro casos passaram e a suíte atingiu 201 aprovações.</p>
+    <p>Erro de infraestrutura não deve ser vendido como rejeição criptográfica: só Unprotect pode produzir código 3 com status Rejeitado. Falhas do host continuam código 5, sem publicar detalhes internos. Não mudamos a API para compensar falta de infraestrutura.</p>
+  </section>
+  <section>
+    <h2>Leia o código por responsabilidade</h2>
+    <p><strong>Program.cs do auxiliar:</strong> reconhece os modos novos e delega; os dois modos antigos continuam funcionando e seus seis testes permanecem aprovados.</p>
+    <p><strong>ApiProbeFactory:</strong> inicia a composição da API, usa ambiente ProtectionProbe, desabilita bootstrap e conexão Mercado Pago, remove fontes de configuração privadas e logs, troca PostgreSQL por InMemory e isola a persistência das chaves. Na leitura, DisableAutomaticKeyGeneration evita substitutas. No Windows solicita DPAPI para as chaves fictícias; o WSL não valida esse branch.</p>
+    <p><strong>ApiProtectionScenario:</strong> pede provider e opções ao contêiner por GetRequiredService. Obtém o discriminador, calcula apenas seu hash, protege o texto fictício ou tenta recuperá-lo. A mensagem final não contém o texto nem a chave.</p>
+    <p><strong>Build:</strong> o auxiliar agora referencia a API e as bibliotecas de teste nas mesmas versões já usadas. A cópia para ProtectionProbe permite só DLLs e metadados de runtime/manifest, não appsettings. Não limpa cópias antigas; a conferência usou configuração nova nos dois projetos, sem apagar arquivos.</p>
+  </section>
+  <section>
+    <h2>Onde termina a prova automática?</h2>
+    <p>Ela usa pastas e chaves fictícias. O agente não acessou o keyring Windows, Secret Manager ou banco local. Ainda será necessária execução operacional explícita no Windows, com provider da instalação, mesma identidade/contexto e geração automática desabilitada para não criar ou rotacionar chaves reais. Não execute os modos atuais apontando para suas chaves reais: api-proteger gera material quando necessário e não é o contrato dessa prova operacional.</p>
+    <p>Não criamos endpoint público. Não é teste de conta Mercado Pago, pagamento, crash de disco ou restauração de backup. Produção continua desabilitada e o gate de recuperação permanece aberto.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que resolver o provider pelo contêiner?</summary><p>Para usar o serviço que a API registra, em vez de provar apenas que outro provider, criado manualmente, funciona.</p></details>
+    <details><summary>2. Mesmo keyring sempre permite recuperar?</summary><p>Não. Identidade da aplicação e propósito precisam ser compatíveis, e as chaves protegidas em disco precisam ser acessíveis no contexto correto.</p></details>
+    <details><summary>3. O que provava o código 2 da fase inicial?</summary><p>Que o auxiliar não suportava o modo pedido. Não provava falha da API, falha DPAPI nem rejeição criptográfica. Depois de implementar o modo aprovado, os testes passaram sem alteração.</p></details>
+    <details><summary>4. Por que não fixar SetApplicationName no teste para passar?</summary><p>Porque esconderia o efeito do content root e deixaria de especificar o isolamento padrão atual da aplicação.</p></details>
+    <details><summary>5. Por que não criar chaves na leitura?</summary><p>Chaves novas não recuperam o texto antigo e poderiam alterar o ambiente real durante um diagnóstico.</p></details>
+    <details><summary>6. Podemos cobrar após esses quatro testes?</summary><p>Não. Estão aprovados no WSL com dependências isoladas. Não certificam o perfil Windows, recuperação de backup nem a integração de pagamentos.</p></details>
+  </section>
+  <p>Referência: <a href="https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0">configuração e isolamento oficiais do Data Protection</a>.</p>
+</main></body>
+</html>

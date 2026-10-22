@@ -158,6 +158,16 @@ Foram adicionados seis testes de caracterização do componente Data Protection 
 
 A prova não inicializa o composition root da API nem usa seu discriminador efetivo; portanto não atesta recuperação de tokens reais após reiniciar a API, DPAPI no Windows, disaster recovery ou mudança de máquina/identidade. As ACL da pasta e os metadados DPAPI informados pelo mantenedor não comprovam o conteúdo dos arquivos individuais. Não copiar chaves reais para WSL. Gate operacional de backup/recuperação permanece aberto. [Estudo 10](estudos/10-chaves-processos-e-limites.html).
 
+### Provider obtido de ApiServices — especificação e implementação do auxiliar
+
+Log posterior do mantenedor confirmou o diretório do perfil e DPAPI na inicialização da API Windows. Quatro testes novos especificam um diagnóstico futuro, sem endpoint, que resolve IDataProtectionProvider no contêiner do Program.cs com configurações fictícias, banco isolado e keyring temporário. Não é permitido usar provider efêmero, SetApplicationName de teste para contornar isolamento ou alterar produção para satisfazer o auxiliar. O content root é parte do isolamento padrão atual: mesmo root recupera, outro root rejeita. Propósito incorreto e ausência das chaves também devem rejeitar.
+
+Saída contém somente origem/status/ID de processo/hash do discriminador; não chave, token, ciphertext ou plaintext. Na especificação inicial houve quatro falhas por exit 2 na preparação; nenhum cenário alcançava descriptografia. Não era RED funcional da API.
+
+Após aprovação, os mesmos quatro testes passaram. Auxiliar agora referencia a API e as bibliotecas de teste já utilizadas, nas mesmas versões. ApiProbeFactory inicia o entry point via WebApplicationFactory com ambiente próprio, configuração fictícia, bootstrap/conexão desabilitados, banco InMemory e keyring temporário. Não altera o discriminador nem substitui IDataProtectionProvider. Cenário resolve provider e opções de ApiServices; chave ausente na leitura não gera substituta. Rejeitado/código 3 só pode vir da operação Unprotect; falhas do host são infraestrutura/código 5.
+
+Suíte final WSL com PostgreSQL isolado: 201 aprovados, zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Cópia do runtime do probe filtrada para não incluir appsettings, conferida em output novo. Prova usa dependências isoladas e keyring fictício; não valida DPAPI do perfil, segredos/configuração reais, recuperação após queda de máquina ou backup. Não executar manualmente contra o perfil real: faltam contrato seguro sem geração/rotação e revisão operacional. API de produção e DTOs intactos, sem chamada externa ou cobrança. [Estudo 11](estudos/11-provider-da-api-e-especificacao.html). Diff final em revisão.
+
 ## Referências oficiais
 
 - [Authorization code, state e PKCE](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation).

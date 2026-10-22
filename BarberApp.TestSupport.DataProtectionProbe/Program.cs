@@ -3,18 +3,21 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace BarberApp.TestSupport.DataProtectionProbe;
 
-// Executável exclusivo dos testes: não carrega a API, configuração local ou banco.
+// Executável exclusivo dos testes. O modo api-* usa a API com dependências isoladas.
 internal static class Program
 {
     private const string TextoFicticio = "ONLY-FOR-TESTS-NOT-A-MERCADO-PAGO-TOKEN";
 
     public static int Main(string[] args)
     {
-        if (args.Length != 5 || args[0] is not ("proteger" or "recuperar"))
+        if (args.Length != 5 || args[0] is not ("proteger" or "recuperar" or "api-proteger" or "api-recuperar"))
             return 2;
 
         try
         {
+            if (args[0] is "api-proteger" or "api-recuperar")
+                return ApiProtectionScenario.Executar(args);
+
             var provider = DataProtectionProvider.Create(new DirectoryInfo(args[1]), builder =>
             {
                 builder.SetApplicationName(args[3]);
@@ -39,7 +42,7 @@ internal static class Program
             Console.WriteLine("RECUPERADO");
             return 0;
         }
-        catch (CryptographicException)
+        catch (CryptographicException) when (args[0] is not ("api-proteger" or "api-recuperar"))
         {
             Console.WriteLine("REJEITADO");
             return 3;

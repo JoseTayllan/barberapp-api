@@ -612,3 +612,17 @@ dotnet test BarberApp.IntegrationTests/BarberApp.IntegrationTests.csproj --filte
 ```
 
 No WSL autorizado: seis passaram de primeira; suíte completa com PostgreSQL isolado, 197 aprovados, zero falhas/ignorados. Não houve RED funcional nem implementação de produção. Não confundir com validação do keyring/discriminador real da API ou DPAPI Windows: a prova é do componente com configuração explícita. Cópia bem-sucedida no mesmo contexto não garante recuperação em outra máquina. Veja [estudo 10](docs/estudos/10-chaves-processos-e-limites.html). Diff aguarda revisão humana; sem cobrança ou chamada real.
+
+### Provider resolvido pela API — especificação e GREEN
+
+Após aprovação do capítulo 10, log da API fornecido pelo mantenedor confirmou uso da pasta padrão Windows e DPAPI. Quatro novos ApiDataProtectionProcessTests especificam modos ainda não implementados do auxiliar: resolver o provider no contêiner do Program.cs, recuperar em outro processo com mesmo content root e rejeitar mudança de root/propósito ou keyring vazio. Somente chaves e configuração fictícias. Nenhuma implementação ou endpoint novo.
+
+```powershell
+dotnet test BarberApp.IntegrationTests/BarberApp.IntegrationTests.csproj --no-restore --filter FullyQualifiedName~ApiDataProtectionProcessTests
+```
+
+Resultado inicial WSL: quatro falhas por modo não suportado, antes de qualquer recuperação. Suíte com PostgreSQL isolado: 201 executados, 197 aprovados/quatro falhos, zero ignorados. Era um contrato pendente do auxiliar, não RED funcional da criptografia da API.
+
+Após aprovação, os mesmos testes passaram sem alteração. ApiProbeFactory inicia o Program.cs via WebApplicationFactory, troca banco por InMemory, configuração por valores fictícios e keyring por diretório temporário. ApiProtectionScenario resolve o provider/discriminador do contêiner, sem SetApplicationName ou provider efêmero. Não há alteração no Program.cs nem endpoint novo. Dependências Mvc.Testing/InMemory do auxiliar usam as versões já existentes (10.0.5).
+
+GREEN: 201 aprovados (22 unitários + 179 integração), zero falhas/ignorados, incluindo PostgreSQL isolado. Build sem erros/avisos e lint do recorte aprovado. Filtro de cópia do auxiliar agora permite só binários/metadados de runtime, sem appsettings; validado com output novo dos projetos de teste. Não remove arquivos antigos. Não executar os modos contra chaves reais: a prova Windows/perfil continua pendente e a geração na proteção não está desabilitada para esse uso manual. Veja [estudo 11](docs/estudos/11-provider-da-api-e-especificacao.html). Diff final aguarda revisão.

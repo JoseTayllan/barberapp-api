@@ -26,7 +26,7 @@
 
   <Target Name="CopyDataProtectionProbe" AfterTargets="Build">
     <ItemGroup>
-      <_ProtectionProbeFiles Include="$(MSBuildProjectDirectory)/../BarberApp.TestSupport.DataProtectionProbe/bin/$(Configuration)/$(TargetFramework)/*" />
+      <_ProtectionProbeFiles Include="$(MSBuildProjectDirectory)/../BarberApp.TestSupport.DataProtectionProbe/bin/$(Configuration)/$(TargetFramework)/*.dll;$(MSBuildProjectDirectory)/../BarberApp.TestSupport.DataProtectionProbe/bin/$(Configuration)/$(TargetFramework)/*.deps.json;$(MSBuildProjectDirectory)/../BarberApp.TestSupport.DataProtectionProbe/bin/$(Configuration)/$(TargetFramework)/*.runtimeconfig.json;$(MSBuildProjectDirectory)/../BarberApp.TestSupport.DataProtectionProbe/bin/$(Configuration)/$(TargetFramework)/MvcTestingAppManifest*.json" />
     </ItemGroup>
     <Copy SourceFiles="@(_ProtectionProbeFiles)" DestinationFolder="$(OutDir)ProtectionProbe" SkipUnchangedFiles="true" />
   </Target>
