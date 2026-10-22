@@ -21,6 +21,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BarberApp.API\BarberApp.API.csproj" />
+    <ProjectReference Include="..\BarberApp.TestSupport.DataProtectionProbe\BarberApp.TestSupport.DataProtectionProbe.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopyDataProtectionProbe" AfterTargets="Build">
+    <ItemGroup>
+      <_ProtectionProbeFiles Include="$(MSBuildProjectDirectory)/../BarberApp.TestSupport.DataProtectionProbe/bin/$(Configuration)/$(TargetFramework)/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ProtectionProbeFiles)" DestinationFolder="$(OutDir)ProtectionProbe" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

@@ -150,6 +150,14 @@ Migration `20261020213112_AddEstadoRecuperacaoMercadoPago`: [SQL revisado](sql/2
 
 Riscos: política conservadora pode exigir nova autorização mesmo quando o provedor não processou a solicitação. Não se tenta reconciliar/repetir uma rotação incerta automaticamente. Futura migration/rollback, backup de chaves, crash real, admissão entre processos e integração de checkout/webhooks permanecem gates antes de pagamentos reais. Remover o marcador por rollback pode reativar credenciais incertas e exige avaliação explícita.
 
+## Verificação local e prova parcial das chaves — 22/10/2026
+
+Após o incremento anterior, o mantenedor confirmou aplicação dos dois SQL ao banco local após backup, histórico de oito migrations e schema correto. Confirmou API iniciada sem variável de sessão de API key após gravação em User Secrets e GET status 200 NaoConectado com JWT Admin. Nenhum recebedor conectado. A configuração versionada contém só UserSecretsId; nenhum valor secreto foi enviado ou lido pelo agente.
+
+Foram adicionados seis testes de caracterização do componente Data Protection com executável de apoio sem API/banco/rede. Em processos filhos sequenciais, mesmo keyring/app/propósito recupera texto fictício; sem chaves, propósito/app diferente ou adulteração, rejeita; cópia das chaves funciona no mesmo contexto do usuário. Keyring temporário não é o da instalação real. Windows usa DPAPI explicitamente no probe; WSL testa persistência sem essa proteção em disco. Suíte completa WSL com PostgreSQL isolado: 197 aprovados, zero falhas/ignorados; seis novos passaram desde a primeira execução, sem RED funcional ou alteração de implementação.
+
+A prova não inicializa o composition root da API nem usa seu discriminador efetivo; portanto não atesta recuperação de tokens reais após reiniciar a API, DPAPI no Windows, disaster recovery ou mudança de máquina/identidade. As ACL da pasta e os metadados DPAPI informados pelo mantenedor não comprovam o conteúdo dos arquivos individuais. Não copiar chaves reais para WSL. Gate operacional de backup/recuperação permanece aberto. [Estudo 10](estudos/10-chaves-processos-e-limites.html).
+
 ## Referências oficiais
 
 - [Authorization code, state e PKCE](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation).

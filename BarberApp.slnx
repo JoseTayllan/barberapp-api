@@ -5,4 +5,5 @@
   <Project Path="BarberApp.Infrastructure/BarberApp.Infrastructure.csproj" />
   <Project Path="BarberApp.IntegrationTests/BarberApp.IntegrationTests.csproj" />
   <Project Path="BarberApp.UnitTests/BarberApp.UnitTests.csproj" />
+  <Project Path="BarberApp.TestSupport.DataProtectionProbe/BarberApp.TestSupport.DataProtectionProbe.csproj" />
 </Solution>

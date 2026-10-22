@@ -327,3 +327,11 @@ O backend será considerado pronto quando:
 5. Quais operações administrativas são indispensáveis?
 
 As decisões devem ser registradas aqui antes da implementação correspondente.
+
+## Qualificação operacional local — 22/10/2026
+
+Mantenedor confirmou backup, aplicação das duas migrations Mercado Pago no banco local, histórico de oito entradas/schema correto e status autenticado 200 NaoConectado. User Secrets inicializado por ele e API key local salva sem valor literal no histórico. Metadados Windows indicam duas chaves DPAPI e ACL de pasta restrita; não é validação completa de recuperação.
+
+Seis DataProtectionProcessTests novos, com executável auxiliar exclusivo de testes, verificam persistência entre processos, cópia no mesmo contexto e rejeição por chave ausente/aplicação/propósito/ciphertext incompatíveis. Testes passaram de primeira por caracterizarem Data Protection já existente; sem RED artificial nem mudança da implementação da API. GREEN WSL: 197 aprovados (22 unitários + 175 integração), zero falhas/ignorados; lint dos dois novos C# aprovado. Material em docs/estudos/10-chaves-processos-e-limites.html. Diff aguarda revisão.
+
+Ainda pendentes: round-trip com configuração efetiva da API Windows, permissões dos arquivos individuais, procedimento de backup/recuperação das chaves reais e efeito de mudança de identidade/caminho. O probe usa configuração explícita e keyring de teste; WSL não valida DPAPI. Não habilitar produção/conta real nem declarar o gate operacional concluído com esta prova parcial.

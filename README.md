@@ -600,3 +600,15 @@ Desenvolvido como projeto de portfólio para demonstrar domínio de:
 ---
 
 *Projeto em desenvolvimento ativo — contribuições e sugestões são bem-vindas.*
+
+## Qualificação local das chaves — 22/10/2026
+
+O mantenedor aplicou as duas migrations Mercado Pago ao banco local com backup prévio e conferiu histórico/schema. Validou API key via User Secrets e JWT Admin: status 200 NaoConectado. A API não está conectada a uma conta real. UserSecretsId é metadado versionável; valores do Secret Manager ficam fora do repositório, sem criptografia própria, e são para desenvolvimento. Não imprimir user-secrets list nem copiar o arquivo de segredos.
+
+Seis novos testes de caracterização verificam Data Protection em processos separados com chaves/texto fictícios isolados. Não modificam a criptografia da API nem tocam nas chaves do usuário. Execute pelo projeto de integração (o executável auxiliar é compilado/copiado automaticamente):
+
+```powershell
+dotnet test BarberApp.IntegrationTests/BarberApp.IntegrationTests.csproj --filter FullyQualifiedName~DataProtectionProcessTests
+```
+
+No WSL autorizado: seis passaram de primeira; suíte completa com PostgreSQL isolado, 197 aprovados, zero falhas/ignorados. Não houve RED funcional nem implementação de produção. Não confundir com validação do keyring/discriminador real da API ou DPAPI Windows: a prova é do componente com configuração explícita. Cópia bem-sucedida no mesmo contexto não garante recuperação em outra máquina. Veja [estudo 10](docs/estudos/10-chaves-processos-e-limites.html). Diff aguarda revisão humana; sem cobrança ou chamada real.

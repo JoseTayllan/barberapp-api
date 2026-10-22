@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 10 — Chaves, processos e limites da prova</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Guardar o token não basta: precisamos conseguir lê-lo amanhã</h1>
+  <p>22/10/2026 · Material offline. Seis testes de caracterização aprovados desde a primeira execução. Suíte completa WSL: 197 aprovados, nenhuma falha ou teste ignorado. Diff aguardando revisão humana. Não é certificação da instalação Windows.</p>
+  <section>
+    <h2>Três coisas diferentes</h2>
+    <p><strong>API key:</strong> identifica o consumidor, enviada em X-API-Key. <strong>JWT:</strong> identifica o usuário e suas permissões. <strong>Chaves do Data Protection:</strong> protegem os tokens recebidos do Mercado Pago antes de armazená-los no banco.</p>
+    <p>Perder o segredo da API key exige substituí-lo nos consumidores. Perder as chaves de criptografia pode impedir ler tokens já armazenados. Um backup somente do banco não resolve essa perda.</p>
+  </section>
+  <section>
+    <h2>O que verificamos juntos</h2>
+    <p>O mantenedor criou backup do PostgreSQL local, aplicou as duas migrations e conferiu oito entradas no histórico. A API respondeu 200 com NaoConectado usando API key e JWT Admin. Isso prova o fluxo de consulta, não descriptografia de tokens inexistentes.</p>
+    <p>O Secret Manager guardou a API key fora do repositório. O UserSecretsId versionado identifica o armazenamento: não contém a chave. User Secrets não criptografa valores em disco e não é cofre de produção.</p>
+    <p>Dois arquivos de chaves indicaram DPAPI. A pasta mostrou ACL para usuário, SYSTEM e administradores. Não lemos nem copiamos suas chaves. Metadados da pasta não provam que a aplicação usa esses arquivos nem que cada arquivo possui a mesma ACL.</p>
+  </section>
+  <section>
+    <h2>O teste entre processos</h2>
+    <p>O teste cria uma pasta temporária exclusiva. O processo A protege um texto explicitamente fictício, grava apenas o ciphertext e termina. O processo B inicia depois e tenta recuperá-lo. Não há banco, endpoint de diagnóstico ou chamada ao Mercado Pago.</p>
+    <p>Para ler, o processo B precisa do keyring compatível, da mesma identidade de aplicação e do mesmo propósito. O propósito do recorte é <code>BarberApp.MercadoPago.Tokens.v1</code>. Alterar o propósito não é uma refatoração cosmética: impede recuperar o material anterior.</p>
+    <p>Na leitura, <code>DisableAutomaticKeyGeneration</code> evita gerar substitutas quando faltam chaves. O teste de pasta vazia exige rejeição e nenhuma chave nova. Uma chave nova não recupera um ciphertext antigo.</p>
+  </section>
+  <section>
+    <h2>Os seis casos</h2>
+    <ol>
+      <li>Outro processo com as mesmas chaves, aplicação e propósito recupera o texto.</li>
+      <li>Outro propósito é rejeitado.</li>
+      <li>Outra aplicação é rejeitada.</li>
+      <li>Pasta sem as chaves é rejeitada, sem geração automática na leitura.</li>
+      <li>Cópia das chaves funciona no mesmo contexto de usuário.</li>
+      <li>Alteração de um byte do ciphertext é rejeitada.</li>
+    </ol>
+    <p>O programa auxiliar só informa PROTEGIDO, RECUPERADO ou REJEITADO e códigos de saída. Não imprime o texto, o ciphertext nem as chaves. O processo filho não herda as credenciais da sessão.</p>
+  </section>
+  <section>
+    <h2>Por que não houve RED?</h2>
+    <p>Estamos caracterizando uma capacidade já implementada pelo framework, não criando comportamento novo da API. Todos os seis casos passaram de primeira. Não quebramos código de propósito nem chamamos erro de compilação de RED.</p>
+    <p>TDD continua obrigatório para mudanças futuras da aplicação: especificar o comportamento novo, ver a falha funcional, revisar e implementar. Este incremento é uma prova parcial de tecnologia já existente, não uma nova política operacional de chaves.</p>
+  </section>
+  <section>
+    <h2>O que NÃO provamos</h2>
+    <p>O probe não usa o composition root nem o discriminador real do BarberApp. Ele configura uma aplicação de teste e um keyring isolado. Portanto não é prova end-to-end da API.</p>
+    <p>A execução observada foi no WSL. Ali as chaves fictícias não são protegidas com DPAPI. No Windows o probe pede DPAPI, mas ainda precisamos executá-lo nesse ambiente. Não desativar proteções do Windows para forçar sua execução.</p>
+    <p>Copiar chaves DPAPI não garante restaurá-las em outro computador ou usuário. Este teste não simula queda de energia, falha de disco, backup da identidade Windows, armazenamento de segredos de produção ou retomada de pagamentos. Nenhuma conta foi conectada.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Status 200 NaoConectado prova que conseguimos descriptografar tokens?</summary><p>Não. A consulta não carrega tokens e não há conexão cadastrada. Ela prova autenticação/autorização e consulta local nesse cenário.</p></details>
+    <details><summary>2. Por que encerrar A antes de iniciar B?</summary><p>Para que B não possa depender do cache ou de objetos na memória de A. Ele precisa reconstruir o provider a partir do material persistido.</p></details>
+    <details><summary>3. O que muda se trocar o propósito?</summary><p>A recuperação do ciphertext anterior é rejeitada, mesmo com as mesmas chaves físicas. O propósito é parte do isolamento criptográfico.</p></details>
+    <details><summary>4. Por que a cópia de teste não equivale a um plano de desastre?</summary><p>Ela mantém máquina, usuário e configuração compatíveis e usa chaves fictícias. Não testa recuperação da identidade DPAPI nem das chaves reais em outra máquina.</p></details>
+    <details><summary>5. UserSecretsId deve ser escondido?</summary><p>Não. É um identificador sem credencial. Os valores associados no armazenamento local precisam ser mantidos privados e fora do Git.</p></details>
+    <details><summary>6. Se o framework já atende ao requisito, devemos forçar RED?</summary><p>Não. Registre que é um teste de caracterização aprovado desde a primeira execução. RED deve evidenciar uma lacuna funcional real de uma mudança, não uma falha artificial.</p></details>
+  </section>
+  <section>
+    <h2>Próximo gate</h2>
+    <p>Revisar estes testes e seus limites antes de propor uma política de keyring para a API. Ainda precisamos de recuperação com a configuração efetiva da instalação e procedimento aprovado de backup. Não alterar caminho, nome da aplicação ou identidade de execução sem avaliar os dados existentes.</p>
+    <p>Fontes: <a href="https://github.com/dotnet/aspnetcore/blob/main/src/DataProtection/samples/NonDISample/Program.cs">exemplo oficial de provider fora de DI</a> e <a href="https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0">configuração oficial Data Protection</a>.</p>
+  </section>
+</main></body>
+</html>
