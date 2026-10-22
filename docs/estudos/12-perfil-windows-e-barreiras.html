@@ -17,8 +17,14 @@
 </head>
 <body><main>
   <h1>Antes de usar uma chave real, prove as barreiras</h1>
-  <p>22/10/2026 · Modos de perfil implementados após aprovação dos testes, sem alterá-los. Nenhuma chave real acessada. O commit 595e35e encerrou a prova anterior com chaves fictícias; a execução nativa com o perfil Windows ainda está pendente.</p>
-  <p>Resultado inicial: 201 aprovados/11 falhos por modo ausente. GREEN após aprovação: 212 aprovados (22 unitários e 190 integração), zero falhas/ignorados, PostgreSQL isolado no WSL. Build sem erros/avisos e formatação do recorte aprovada. Diff final em revisão; isso não certifica recuperação real Windows.</p>
+  <p>Registro de 22/10/2026 · Barreiras aprovadas/publicadas em d0bdd68. Depois, com autorizações separadas, o mantenedor executou proteção e recuperação de texto fictício no Windows. O agente não leu suas chaves, XMLs ou payloads.</p>
+  <p>Histórico automático: 201 aprovados/11 falhos na especificação; GREEN após aprovação: 212 aprovados, zero falhas/ignorados no WSL, build sem avisos/erros e formatação aprovada. A atualização abaixo é apenas documental; essa suíte não foi repetida.</p>
+  <section>
+    <h2>O resultado local que você confirmou</h2>
+    <p>Inspeção retornou Inspecionado/código 0, com geração automática false e padrões preservados. Depois criamos novo destino e Test-Path retornou False. Você registrou duas chaves antes, recebeu Protegido no processo 25756 e, em outra chamada, informou Recuperado/código 0.</p>
+    <p>Ao final: duas chaves e zero diferenças nos nomes, tamanhos e última escrita UTC. Isso demonstra recuperação do texto fictício nesse contexto relatado; não identidade bit a bit dos XMLs nem ausência absoluta de escrita. O JSON completo da última recuperação e o código de saída da proteção não foram reenviados: não inventamos esses detalhes.</p>
+    <p>O host usou o provider da API, mas banco e configurações de diagnóstico continuam fictícios. Não houve teste de tokens reais ou pagamento. Artefatos temporários preservados; nenhuma chave deve ser apagada.</p>
+  </section>
   <section>
     <h2>O risco novo</h2>
     <p>Os modos antigos podem gerar chaves ao proteger um texto. Isso é adequado no keyring fictício dos testes, mas não numa conferência que promete preservar seu perfil. Não basta apontar o auxiliar existente para a pasta real.</p>
@@ -45,7 +51,7 @@
   <section>
     <h2>Confirmação não é autenticação</h2>
     <p>O argumento explícito indica que o operador reconhece a leitura local. Não concede direitos: DPAPI e permissões do Windows continuam valendo. Não executar como outro usuário, mudar ACL ou desativar proteções para contornar recusa.</p>
-    <p>Futuras operações criptográficas de perfil devem recusar Linux. Inspecionar opções no WSL não valida DPAPI; serve apenas para conferir a política antes da prova nativa.</p>
+    <p>Os modos criptográficos do perfil recusam Linux. Inspecionar opções no WSL não valida DPAPI; a evidência nativa foi obtida depois pelo mantenedor no Windows, dentro do limite do cenário relatado.</p>
   </section>
   <section>
     <h2>Arquivo fictício também merece cuidado</h2>
@@ -55,7 +61,7 @@
   <section>
     <h2>As falhas iniciais não certificam segurança</h2>
     <p>Na fase inicial, o auxiliar não conhecia perfil-* e retornava código 2 antes das barreiras. Os testes exigem recusa específica/código 6 ou inspeção bem-sucedida/código 0. Um modo inexistente não comprova que a validação funciona.</p>
-    <p>Era uma especificação da ferramenta pendente, não RED funcional da API. Após a aprovação, implementamos o auxiliar e os onze casos passaram sem alteração. A execução real ainda precisa de revisão do diff e do procedimento.</p>
+    <p>Era uma especificação da ferramenta pendente, não RED funcional da API. Após a aprovação, implementamos o auxiliar e os onze casos passaram sem alteração. A prova nativa veio depois da revisão/publicação e de autorizações separadas, não como consequência automática de um teste verde.</p>
   </section>
   <section>
     <h2>Leia a implementação em três partes</h2>
@@ -65,19 +71,26 @@
     <p>A escrita usa FileMode.CreateNew e FileShare.None. Um arquivo criado por outro processo depois da validação não é sobrescrito. Falhas de escrita podem deixar um arquivo incompleto que deve ser inspecionado como artefato da prova, não apagado automaticamente para tentar de novo.</p>
   </section>
   <section>
-    <h2>O que observar depois, no Windows?</h2>
+    <h2>O que observar no Windows e o que continua pendente?</h2>
     <p>Mesmo usuário, máquina e root da API; API parada. Registrar metadados de nomes/tamanho/última escrita das chaves antes e depois, sem abrir XML ou copiar conteúdo. Proteger o texto fictício num processo, encerrar e recuperar em outro. Se o keyring mudar, investigar sem apagar ou reverter chaves.</p>
     <p>Mesmo uma prova bem-sucedida não é backup restaurável em outra máquina, simulação de queda de energia ou permissão para cobrar. Outros projetos podem compartilhar o keyring do perfil. Checar links antes de abrir não cria uma sandbox resistente a um processo hostil da mesma identidade que altere diretórios durante a operação; mantenha o cenário local controlado e não apresente segurança absoluta.</p>
+  </section>
+  <section>
+    <h2>O incidente de DestinoJaExiste</h2>
+    <p>A tentativa inicial recusou sobrescrever um arquivo. A recuperação seguinte funcionou, mas não estabelecia quando ou por quem esse arquivo tinha sido criado. Por isso ela não foi contada como prova nova; não apagamos o arquivo para esconder a incerteza.</p>
+    <p>Criamos outro destino e conferimos ausência antes de repetir, um passo por vez. No PowerShell interativo, throw interrompe aquele bloco; não impede que o operador execute manualmente outro comando. Diante de falha, pare e revise a saída, em vez de seguir a lista automaticamente.</p>
   </section>
   <section>
     <h2>Exercícios com respostas</h2>
     <details><summary>1. Por que desabilitar geração também na proteção?</summary><p>Para que o diagnóstico não crie ou rotacione chaves caso o framework precise de uma nova. A intenção é usar somente o material existente.</p></details>
     <details><summary>2. Repositório/encryptor sem sobrescrita significam plaintext?</summary><p>Não. O framework seleciona os padrões do ambiente. No Windows observado, perfil e DPAPI; a inspeção de opções não substitui a prova operacional.</p></details>
-    <details><summary>3. Por que código 2 não comprovava a recusa segura?</summary><p>Porque significava modo desconhecido. Nenhuma validação precisava executar. Agora os testes passam com recusa específica/código 6 e inspeção/código 0, mas a recuperação real continua pendente.</p></details>
+    <details><summary>3. Por que código 2 não comprovava a recusa segura?</summary><p>Porque significava modo desconhecido. Agora os testes passam com validações específicas. A recuperação nativa foi relatada depois pelo mantenedor, como evidência separada do GREEN automático.</p></details>
     <details><summary>4. Conferir File.Exists basta para evitar sobrescrita?</summary><p>Não. Outro processo pode criar o arquivo depois da conferência. A criação deve ser exclusiva no momento da escrita.</p></details>
     <details><summary>5. O argumento de confirmação concede permissão Windows?</summary><p>Não. É reconhecimento humano, não autenticação. O usuário e DPAPI continuam controlando o acesso.</p></details>
-    <details><summary>6. Passar os testes no WSL prova recuperação do seu perfil?</summary><p>Não. Não há Protect/Unprotect no perfil real nesses testes. DPAPI e a recuperação nativa ainda precisam de etapa revisada no Windows.</p></details>
+    <details><summary>6. Passar os testes no WSL prova recuperação do seu perfil?</summary><p>Não. Os testes não usam criptografia no perfil real. A prova Windows foi outra etapa, autorizada e executada pelo mantenedor; não deve ser confundida com a suíte automática.</p></details>
+    <details><summary>7. Zero diferenças nos metadados prova que os bytes das chaves não mudaram?</summary><p>Não. Só comparamos nomes, tamanhos e última escrita. É uma observação útil, não auditoria de conteúdo ou prova absoluta de imutabilidade.</p></details>
+    <details><summary>8. O que ainda falta, mesmo com Recuperado/código 0?</summary><p>Backup/restauração de chaves e identidade DPAPI, mudança de contexto, recuperação após falha e integração de tokens/pagamentos reais. O resultado local não encerra esses gates.</p></details>
   </section>
-  <p><a href="../operacao/prova-keyring-windows.md">Procedimento proposto — ainda não executar.</a></p>
+  <p><a href="../operacao/prova-keyring-windows.md">Procedimento, evidência relatada e limites — não repetir sem necessidade.</a></p>
 </main></body>
 </html>
