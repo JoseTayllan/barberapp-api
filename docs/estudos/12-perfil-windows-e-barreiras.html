@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 12 — Perfil Windows e barreiras de segurança</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Antes de usar uma chave real, prove as barreiras</h1>
+  <p>22/10/2026 · Modos de perfil implementados após aprovação dos testes, sem alterá-los. Nenhuma chave real acessada. O commit 595e35e encerrou a prova anterior com chaves fictícias; a execução nativa com o perfil Windows ainda está pendente.</p>
+  <p>Resultado inicial: 201 aprovados/11 falhos por modo ausente. GREEN após aprovação: 212 aprovados (22 unitários e 190 integração), zero falhas/ignorados, PostgreSQL isolado no WSL. Build sem erros/avisos e formatação do recorte aprovada. Diff final em revisão; isso não certifica recuperação real Windows.</p>
+  <section>
+    <h2>O risco novo</h2>
+    <p>Os modos antigos podem gerar chaves ao proteger um texto. Isso é adequado no keyring fictício dos testes, mas não numa conferência que promete preservar seu perfil. Não basta apontar o auxiliar existente para a pasta real.</p>
+    <p>A implementação exige geração automática desabilitada em todas as fases, inclusive proteção. Sem chave utilizável, o diagnóstico deve falhar, não habilitar geração de outra. Chave nova não recupera texto cifrado com uma chave antiga perdida.</p>
+  </section>
+  <section>
+    <h2>Onze casos antes da implementação</h2>
+    <ul>
+      <li>Inspeção de opções do contêiner sem Protect/Unprotect: geração false e sem sobrescritas de repositório/encryptor.</li>
+      <li>Três modos recusam ausência de confirmação explícita.</li>
+      <li>Proteção e recuperação recusam propósito arbitrário.</li>
+      <li>Proteção e recuperação recusam destino fora da pasta temporária exclusiva.</li>
+      <li>Root inexistente é recusado sem criar diretório ou payload.</li>
+      <li>Proteção não sobrescreve arquivo existente.</li>
+      <li>Recuperação exige payload existente.</li>
+    </ul>
+    <p>Os testes não executam criptografia no perfil real, nem quando rodarem no Windows. As recusas precisam ocorrer antes de resolver o provider; somente a inspeção pode montar o contêiner para ler opções.</p>
+  </section>
+  <section>
+    <h2>O que significa “sem sobrescrita explícita”?</h2>
+    <p>XmlRepository e XmlEncryptor não definidos manualmente deixam o framework selecionar os padrões do ambiente. Não significam “não persiste” ou “não criptografa”. No log da sua API, o Windows selecionou o perfil e DPAPI.</p>
+    <p>O diagnóstico não deve reconstruir o provider nem fixar SetApplicationName. Precisamos conservar a identidade derivada do content root da instalação, sem publicar seu valor: basta o hash de comparação.</p>
+  </section>
+  <section>
+    <h2>Confirmação não é autenticação</h2>
+    <p>O argumento explícito indica que o operador reconhece a leitura local. Não concede direitos: DPAPI e permissões do Windows continuam valendo. Não executar como outro usuário, mudar ACL ou desativar proteções para contornar recusa.</p>
+    <p>Futuras operações criptográficas de perfil devem recusar Linux. Inspecionar opções no WSL não valida DPAPI; serve apenas para conferir a política antes da prova nativa.</p>
+  </section>
+  <section>
+    <h2>Arquivo fictício também merece cuidado</h2>
+    <p>O único arquivo novo conterá ciphertext de um texto fixo sem valor real. Ainda assim, a proteção deve usar criação exclusiva: verificar existência e depois sobrescrever é vulnerável a uma mudança entre as duas etapas.</p>
+    <p>Não criar root ausente, aceitar links para outros destinos, apagar chaves nem reutilizar arquivo pessoal. O destino deve ser diretamente a pasta temporária exclusiva criada para a prova.</p>
+  </section>
+  <section>
+    <h2>As falhas iniciais não certificam segurança</h2>
+    <p>Na fase inicial, o auxiliar não conhecia perfil-* e retornava código 2 antes das barreiras. Os testes exigem recusa específica/código 6 ou inspeção bem-sucedida/código 0. Um modo inexistente não comprova que a validação funciona.</p>
+    <p>Era uma especificação da ferramenta pendente, não RED funcional da API. Após a aprovação, implementamos o auxiliar e os onze casos passaram sem alteração. A execução real ainda precisa de revisão do diff e do procedimento.</p>
+  </section>
+  <section>
+    <h2>Leia a implementação em três partes</h2>
+    <p><strong>Program:</strong> reconhece os três modos novos e delega ao WindowsProfileScenario; preserva os modos antigos. Falhas internas continuam sem divulgar exception ou valores privados.</p>
+    <p><strong>Factory:</strong> com keyring null, não substitui o repositório/encryptor padrão. Com somenteLeitura true, chama DisableAutomaticKeyGeneration. Os três modos de perfil usam essa mesma combinação; não há um ramo de proteção que habilite geração.</p>
+    <p><strong>Scenario:</strong> valida confirmação, propósito, root, destino e estado do arquivo antes de inicializar o host. Inspeção lê opções; proteção/recuperação exigem Windows. Só depois resolve o provider, usa texto fixo fictício e publica status/hash/ID de processo, nunca material criptográfico.</p>
+    <p>A escrita usa FileMode.CreateNew e FileShare.None. Um arquivo criado por outro processo depois da validação não é sobrescrito. Falhas de escrita podem deixar um arquivo incompleto que deve ser inspecionado como artefato da prova, não apagado automaticamente para tentar de novo.</p>
+  </section>
+  <section>
+    <h2>O que observar depois, no Windows?</h2>
+    <p>Mesmo usuário, máquina e root da API; API parada. Registrar metadados de nomes/tamanho/última escrita das chaves antes e depois, sem abrir XML ou copiar conteúdo. Proteger o texto fictício num processo, encerrar e recuperar em outro. Se o keyring mudar, investigar sem apagar ou reverter chaves.</p>
+    <p>Mesmo uma prova bem-sucedida não é backup restaurável em outra máquina, simulação de queda de energia ou permissão para cobrar. Outros projetos podem compartilhar o keyring do perfil. Checar links antes de abrir não cria uma sandbox resistente a um processo hostil da mesma identidade que altere diretórios durante a operação; mantenha o cenário local controlado e não apresente segurança absoluta.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que desabilitar geração também na proteção?</summary><p>Para que o diagnóstico não crie ou rotacione chaves caso o framework precise de uma nova. A intenção é usar somente o material existente.</p></details>
+    <details><summary>2. Repositório/encryptor sem sobrescrita significam plaintext?</summary><p>Não. O framework seleciona os padrões do ambiente. No Windows observado, perfil e DPAPI; a inspeção de opções não substitui a prova operacional.</p></details>
+    <details><summary>3. Por que código 2 não comprovava a recusa segura?</summary><p>Porque significava modo desconhecido. Nenhuma validação precisava executar. Agora os testes passam com recusa específica/código 6 e inspeção/código 0, mas a recuperação real continua pendente.</p></details>
+    <details><summary>4. Conferir File.Exists basta para evitar sobrescrita?</summary><p>Não. Outro processo pode criar o arquivo depois da conferência. A criação deve ser exclusiva no momento da escrita.</p></details>
+    <details><summary>5. O argumento de confirmação concede permissão Windows?</summary><p>Não. É reconhecimento humano, não autenticação. O usuário e DPAPI continuam controlando o acesso.</p></details>
+    <details><summary>6. Passar os testes no WSL prova recuperação do seu perfil?</summary><p>Não. Não há Protect/Unprotect no perfil real nesses testes. DPAPI e a recuperação nativa ainda precisam de etapa revisada no Windows.</p></details>
+  </section>
+  <p><a href="../operacao/prova-keyring-windows.md">Procedimento proposto — ainda não executar.</a></p>
+</main></body>
+</html>

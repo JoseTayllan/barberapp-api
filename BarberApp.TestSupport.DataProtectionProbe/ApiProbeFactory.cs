@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 namespace BarberApp.TestSupport.DataProtectionProbe;
 
 // Inicializa o entry point real, mas não lê configuração privada nem conecta ao PostgreSQL.
-internal sealed class ApiProbeFactory(string contentRoot, string keyring, bool somenteLeitura)
+internal sealed class ApiProbeFactory(string contentRoot, string? keyring, bool somenteLeitura)
     : WebApplicationFactory<ServicosController>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -46,10 +46,13 @@ internal sealed class ApiProbeFactory(string contentRoot, string keyring, bool s
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase($"ProtectionProbe-{Guid.NewGuid()}"));
 
-            // Mantém provider/discriminador da API: só isola o armazenamento de teste.
-            var protection = services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(keyring));
-            if (OperatingSystem.IsWindows()) protection.ProtectKeysWithDpapi();
+            // Null preserva a seleção padrão do perfil; chave fictícia usa diretório explícito.
+            var protection = services.AddDataProtection();
+            if (keyring is not null)
+            {
+                protection.PersistKeysToFileSystem(new DirectoryInfo(keyring));
+                if (OperatingSystem.IsWindows()) protection.ProtectKeysWithDpapi();
+            }
             if (somenteLeitura) protection.DisableAutomaticKeyGeneration();
         });
     }

@@ -10,11 +10,15 @@ internal static class Program
 
     public static int Main(string[] args)
     {
-        if (args.Length != 5 || args[0] is not ("proteger" or "recuperar" or "api-proteger" or "api-recuperar"))
+        if (args.Length != 5 || args[0] is not ("proteger" or "recuperar" or "api-proteger" or "api-recuperar"
+            or "perfil-inspecionar" or "perfil-proteger" or "perfil-recuperar"))
             return 2;
 
         try
         {
+            if (args[0].StartsWith("perfil-", StringComparison.Ordinal))
+                return WindowsProfileScenario.Executar(args);
+
             if (args[0] is "api-proteger" or "api-recuperar")
                 return ApiProtectionScenario.Executar(args);
 
@@ -42,7 +46,7 @@ internal static class Program
             Console.WriteLine("RECUPERADO");
             return 0;
         }
-        catch (CryptographicException) when (args[0] is not ("api-proteger" or "api-recuperar"))
+        catch (CryptographicException) when (args[0] is "proteger" or "recuperar")
         {
             Console.WriteLine("REJEITADO");
             return 3;
