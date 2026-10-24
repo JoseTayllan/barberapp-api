@@ -123,7 +123,7 @@ builder.Services.AddHttpClient("MercadoPagoOAuth", client =>
     client.MaxResponseContentBufferSize = 65_536;
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<DisponibilidadeService>();
-builder.Services.AddScoped<ExcecaoAgendaService>();                                                                                                                                                                                                                 
+builder.Services.AddScoped<ExcecaoAgendaService>();
 
 builder.Services.AddControllers()
 .ConfigureApiBehaviorOptions(options =>
@@ -225,7 +225,7 @@ using (var scope = app.Services.CreateScope())
             };
 
             var createResult = await userManager.CreateAsync(newAdmin, bootstrapAdminPassword!);
-            
+
             if (!createResult.Succeeded)
             {
                 if (!IsDuplicateIdentityFailure(createResult))

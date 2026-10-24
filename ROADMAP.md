@@ -78,6 +78,7 @@ Nenhum agente escreve ou corrige código sem autorização explícita e pontual.
 - `[ ]` Remover do diff arquivos de cache gerados por ferramentas.
 - `[x]` Executar build e toda a suíte descoberta no estado atual.
 - `[ ]` Corrigir o baseline e fazer `dotnet format --verify-no-changes` passar.
+- Atualização de 24/10/2026 após 30ab1eb: limpeza dedicada somente dos dois trechos de espaços do Program.cs, formatter focado aprovado, build sem avisos/erros e 231 testes WSL aprovados, zero falhas/ignorados. Formatter global ainda acusa whitespace em outros arquivos legados, não alterados; checklist global permanece aberto. Estudo 15 em docs/estudos. Diff da limpeza aguarda revisão humana.
 - `[ ]` Fazer varredura final de segredos no diff e nos logs.
 - `[ ]` Apresentar diff e riscos para aprovação do mantenedor.
 - `[ ]` Adicionar commit corretivo à branch.

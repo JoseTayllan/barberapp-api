@@ -658,3 +658,7 @@ Especificação aprovada: 17 testes HTTP com InMemory e provedor simulado, prese
 A invalidação troca a geração das chaves no cache: states antigos deixam de ser aceitos, mas suas entradas só expiram pelo TTL original de dez minutos. Não é apagamento imediato da memória. Sem migration ou pacote novo. O teste relacional usa escopos distintos na mesma transação revertida; não prova commit durável/crash, atomicidade banco/cache ou coordenação entre processos. Não foram alterados o banco da aplicação, o keyring ou backups reais.
 
 GREEN completo WSL com PostgreSQL isolado: 231 aprovados (22 unitários + 209 integração), zero falhas/ignorados. Build sem avisos/erros. Formatação aprovada nos nove C# do recorte exceto Program.cs, que mantém dois erros de whitespace anteriores à feature, confirmados em HEAD; lint integral não está aprovado. Diff final aguarda revisão humana.
+
+### Limpeza dedicada de formatação — após 30ab1eb
+
+Os dois trechos de espaços do Program.cs foram corrigidos em mudança separada, sem diferença de código ao ignorar whitespace. A checagem focada do formatter falhou antes e passou depois; build sem avisos/erros e 231 testes aprovados no WSL com PostgreSQL isolado, zero falhas/ignorados. Nenhum teste alterado. O lint global ainda falha em outros arquivos legados, preservados fora do escopo. Veja [estudo 15](docs/estudos/15-formatacao-sem-mudar-comportamento.html). Diff desta limpeza aguarda revisão humana; não é implementação de revogação remota.

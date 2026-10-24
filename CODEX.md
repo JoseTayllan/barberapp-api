@@ -310,6 +310,13 @@ Fluxo esperado: o controller recebe/autoriza e delega; o service coordena o caso
 - Adicionado caso HTTP relacional antes da implementação: PostgreSQL isolado, RED 404 no lugar de 204. Após implementar, GREEN focado de 18 casos. Teste relacional verifica exclusão/idempotência em escopos distintos na mesma transação com rollback; não comprova commit durável, reinício/crash ou banco da aplicação. Dois casos PostgreSQL anteriores não alterados.
 - GREEN completo WSL com PostgreSQL isolado: 231 aprovados (22 unitários + 209 integração), zero falhas/ignorados. Build sem avisos/erros. Formatação dos nove C# restantes aprovada; incluindo Program.cs há duas violações de whitespace preexistentes (linhas atuais 126 e 228), confirmadas em HEAD. Não corrigi-las como efeito colateral nem declarar lint integral aprovado. git diff --check sem erro; diff final aguarda revisão humana, sem commit/push pelo agente.
 
+### Higiene dedicada do Program.cs — 24/10/2026
+
+- Desconexão aprovada/publicada pelo mantenedor em 30ab1eb. Em incremento separado foram removidos somente 209 espaços ao fim da linha de registro de ExcecaoAgendaService e 12 numa linha vazia após CreateAsync. Nenhuma instrução, contrato, teste, configuração, segredo ou dependência alterado. git diff --ignore-all-space --exit-code de Program.cs confirma ausência de diferença ignorando whitespace.
+- Verificação antes da edição: dotnet format com --include BarberApp.API/Program.cs falhou exatamente nos dois trechos conhecidos. Após a edição passou. É RED/GREEN do critério de formatação existente, não um teste funcional novo nem implementação de regra de negócio.
+- Build solução no WSL sem avisos/erros; suíte completa com PostgreSQL isolado: 231 aprovados (22 unitários + 209 integração), zero falhas/ignorados. Verificação global somente leitura ainda falhou por whitespace legado em outros arquivos de API/Application/Domain/Infrastructure, não alterados. Não declarar baseline global resolvido nem executar correção ampla incidentalmente.
+- CODEX/README/ROADMAP/registro e estudo 15 atualizados; diff aguarda revisão. Nenhuma operação de revogação remota, alteração do banco da aplicação, chave ou backup. Sem staging, commit ou push pelo agente.
+
 ### Repositórios, EF Core e banco
 
 - Interfaces ficam no `Domain`; implementações, em `Infrastructure/Repositories`.
@@ -419,7 +426,7 @@ dotnet format BarberApp.slnx --verify-no-changes --no-restore
 dotnet format BarberApp.slnx --no-restore
 ```
 
-O lint falha no baseline por whitespace existente. Não rode a correção como efeito colateral de outra tarefa; normalize em mudança dedicada.
+O lint global ainda falha no baseline por whitespace existente em outros arquivos; Program.cs passou na verificação focada após a limpeza dedicada de 24/10/2026. Não rode correção global como efeito colateral de outra tarefa; normalize em mudança dedicada, com diff revisável.
 
 ### EF Core e migrations
 

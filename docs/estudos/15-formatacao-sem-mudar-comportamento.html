@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 15 — Formatação sem mudar comportamento</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Limpar espaços não é mudar uma regra</h1>
+  <p>24/10/2026. Depois da feature publicada em 30ab1eb, corrigimos somente dois trechos do Program.cs em mudança própria. Diff ainda em revisão.</p>
+  <section>
+    <h2>Qual era o problema?</h2>
+    <p>Havia 209 espaços depois do registro de ExcecaoAgendaService e 12 numa linha vazia após CreateAsync. O C# compilava e os testes funcionais passavam, mas o formatter recusava o arquivo.</p>
+    <p>Build, testes e lint respondem a perguntas diferentes: consigo compilar? O comportamento esperado funciona? O código atende ao padrão de formatação? Um resultado verde não substitui os outros.</p>
+  </section>
+  <section>
+    <h2>Antes, mudança e depois</h2>
+    <p>Antes da edição, executamos o formatter com --verify-no-changes --no-restore --include BarberApp.API/Program.cs: saída 1 e os dois erros esperados. Removemos apenas espaços com apply_patch. O mesmo comando passou depois, com saída 0.</p>
+    <p>É RED/GREEN de um critério de formatação existente, não um teste novo de negócio. Não escrevemos teste artificial sobre contagem de espaços nem alteramos teste aprovado para forçar sucesso.</p>
+    <p>O comando git diff --ignore-all-space --exit-code -- BarberApp.API/Program.cs retornou 0: o Git não encontra diferença nesse arquivo quando ignora whitespace. Também lemos o diff normal e executamos os testes; ignorar espaços não é uma prova universal de equivalência em qualquer linguagem ou trecho, especialmente dentro de textos literais.</p>
+  </section>
+  <section>
+    <h2>O resultado exato</h2>
+    <p>Build sem avisos/erros. WSL com PostgreSQL isolado: 231 testes aprovados, zero falhas/ignorados, sem alterar os testes. Formatação focada do Program.cs aprovada.</p>
+    <p>Checagem global ainda falhou em outros arquivos legados, como ExcecoesAgendaController, Agendamento e AppDbContext. Não corrigimos esses arquivos incidentalmente. Recorte verde não significa solução inteira formatada.</p>
+    <p>Não mudamos credenciais, conta Mercado Pago, API, schema ou dependências. Nenhum segredo, chave ou backup foi aberto. Os três caches locais continuam fora da mudança.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Compilar prova que a formatação está correta?</summary><p>Não. O compilador aceita esses espaços; o formatter pode exigir sua remoção.</p></details>
+    <details><summary>2. Por que separar limpeza e feature?</summary><p>Para o diff mostrar claramente o que muda comportamento e o que é apenas mecânico, facilitando revisão e diagnóstico.</p></details>
+    <details><summary>3. Qual diferença entre --verify-no-changes e uma correção?</summary><p>A opção verifica sem editar arquivos. Se houver diferença exigida pelo formatter, retorna falha; não faz a limpeza por você.</p></details>
+    <details><summary>4. O lint global passou?</summary><p>Não. Apenas o Program.cs foi corrigido e aprovado na checagem focada. O global revelou outros problemas fora do escopo.</p></details>
+    <details><summary>5. Os 231 testes foram reescritos?</summary><p>Não. Rodaram novamente sem mudança, para verificar regressões após a limpeza.</p></details>
+  </section>
+  <p><a href="../execucao-roadmap.md">Registro de execução e limites das verificações.</a></p>
+</main></body>
+</html>
