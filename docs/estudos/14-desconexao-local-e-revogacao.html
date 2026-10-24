@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 14 — Desconectar não é revogar</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Desconectar localmente não é revogar no Mercado Pago</h1>
+  <p>24/10/2026. Você aprovou os 17 testes; a implementação mínima veio depois, sem alterá-los. Agora o diff final está em revisão. GREEN WSL: 231 testes aprovados, zero falhas/ignorados, incluindo PostgreSQL isolado.</p>
+  <section>
+    <h2>Qual é a diferença?</h2>
+    <p>Desconexão local remove do BarberApp as credenciais recebidas por OAuth. Não pede ao Mercado Pago que invalide sua autorização. A interface não deve prometer revogação ou cancelamento de pagamentos.</p>
+    <p>É um recorte pequeno e testável, não a integração completa. Não apaga usuários, reservas, histórico de pagamentos ou chaves DPAPI. O backup anterior também não precisa ser apagado.</p>
+  </section>
+  <section>
+    <h2>O contrato implementado</h2>
+    <p><code>DELETE /api/integracoes/mercado-pago/conexao</code>: API key + JWT Admin com identificador. Sucesso 204 sem corpo e com no-store, inclusive sem conta. O status seguinte continua com os mesmos quatro campos, retornando NaoConectado e metadados nulos.</p>
+    <p>Não precisamos decifrar tokens para excluí-los: até credenciais ilegíveis ou com pendência devem poder ser removidas. Configuração do provedor desabilitada não deve bloquear a limpeza local.</p>
+  </section>
+  <section>
+    <h2>A pegadinha do callback atrasado</h2>
+    <p>Admin A inicia OAuth → Admin B desconecta → chega o callback antigo de A. Se apenas apagarmos a linha no banco, aquele callback poderá salvar tokens novamente.</p>
+    <p>Por isso exigimos invalidar todas as tentativas antigas da instalação, não apenas as do solicitante. Mesmo sem linha no banco pode existir state pendente. Uma autorização inteiramente nova após a remoção continua permitida.</p>
+  </section>
+  <section>
+    <h2>Disputa e falha de escrita</h2>
+    <p>Renovação e callback já usam exclusividade local. A remoção e o início OAuth agora participam; a segunda operação recebe 409, sem fila. Iniciar OAuth pode retornar esse conflito durante renovação/callback/exclusão. Isso evita criar uma tentativa na janela errada.</p>
+    <p>Falha no SaveChanges retorna 503 sem detalhes, preserva conexão e tentativas e libera exclusividade. Esses testes não garantem atomicidade entre banco e cache se o processo cair, nem coordenação entre duas APIs.</p>
+    <p>Para ordenar os testes usamos TaskCompletionSource, não sleeps. Um interceptor pausa somente a exclusão; outro cenário pausa a resposta do provedor falso. O limite de dez segundos serve para diagnosticar travamento, não como requisito de desempenho.</p>
+  </section>
+  <section>
+    <h2>Como ler o RED</h2>
+    <p>17 casos executados no WSL: 15 falharam e dois passaram. As falhas atuais são 404 onde esperamos 204, 401, 403, 409 ou 503, além da rota ausente no OpenAPI. A aplicação ainda não implementa DELETE conexao.</p>
+    <p>Os dois verdes são API key ausente/inválida: o middleware global já protege até caminhos desconhecidos. Não é necessário quebrá-lo para fabricar RED.</p>
+    <p>Uma falha na primeira asserção impede avaliar as seguintes. Na etapa RED, exclusão, invalidação e concorrência ainda não estavam demonstradas; não houve erro de compilação ou infraestrutura. A suíte então tinha 230 casos, 215 aprovados/15 falhos.</p>
+    <p>Após sua aprovação, adicionamos antes da implementação outro teste HTTP com PostgreSQL isolado: também falhou por 404. Os 18 casos passaram depois, preservando os 17 aprovados. Suíte completa final: 231 aprovados (22 unitários + 209 integração), zero falhas/ignorados.</p>
+  </section>
+  <section>
+    <h2>Como o código ficou dividido?</h2>
+    <p>Controller verifica identificação e traduz resultados HTTP. DesconexaoMercadoPagoService adquire exclusividade, espera RemoverAsync e só depois invalida states. Repositório EF carrega/remove a linha e espera SaveChangesAsync; se não há linha, não há nada a excluir.</p>
+    <p>O store inclui uma geração Guid nas chaves de cache. Ao desconectar, muda a geração sob lock: todos os states da geração anterior ficam inacessíveis, sem enumerar ou limpar cache de outras funcionalidades. Entradas antigas permanecem até sua expiração original de dez minutos; não prometemos apagamento imediato da memória.</p>
+    <p>Se a escrita falhar, não muda a geração. O using libera exclusividade até em exceção. Banco e cache não formam uma transação única; esse recorte não promete atomicidade se o processo cair nem coordenação de várias APIs.</p>
+    <h2>O que foi verificado e o que não foi?</h2>
+    <p>PostgreSQL: duas remoções HTTP e leitura em escopos diferentes usando a mesma transação, desfeita por rollback. Isso verifica SQL/idempotência, não commit durável ou crash. Nenhum dado do banco da aplicação, token real, chave ou backup foi alterado.</p>
+    <p>Build sem avisos/erros. Formatação dos nove outros C# afetados aprovada; Program.cs mantém dois erros de whitespace anteriores à feature, confirmados em HEAD. Não escondemos esse resultado nem misturamos limpeza legada à mudança. Lint integral ainda não está aprovado.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que repetir DELETE pode retornar 204?</summary><p>O objetivo é deixar a instalação sem conexão. Repetir uma operação concluída mantém esse estado: idempotência não exige que cada execução apague uma linha.</p></details>
+    <details><summary>2. Excluir tokens locais invalida os tokens remotos?</summary><p>Não. Revogação no provedor é outro fluxo, ainda pendente.</p></details>
+    <details><summary>3. Por que invalidar tentativas de outros admins?</summary><p>A conexão pertence à instalação inteira. Um state antigo de outro administrador poderia recriar a conexão removida.</p></details>
+    <details><summary>4. Precisamos da chave DPAPI para apagar a linha?</summary><p>Não precisamos decifrar o conteúdo para remover o registro. O teste usa ciphertext fictício ilegível para exigir essa independência.</p></details>
+    <details><summary>5. O que preservar se a exclusão não for persistida?</summary><p>A conexão anterior e as tentativas OAuth. A resposta deve indicar falha, não sucesso; a exclusividade deve ser liberada.</p></details>
+    <details><summary>6. InMemory prova que o DELETE funciona em PostgreSQL?</summary><p>Não. É útil para o contrato HTTP, falhas controladas e concorrência local. SQL e persistência real precisam de teste relacional antes de encerrar a implementação.</p></details>
+    <details><summary>7. Trocar a geração apaga imediatamente todas as entradas?</summary><p>Não. Torna os states antigos inacessíveis ao fluxo atual; as entradas expiram no prazo original. É invalidação lógica, não limpeza física da memória.</p></details>
+    <details><summary>8. Por que invalidar somente depois de SaveChangesAsync?</summary><p>Se a exclusão não for salva, preservamos o estado anterior e respondemos falha. Invalidar antes perderia tentativas mesmo sem desconectar a instalação.</p></details>
+  </section>
+  <p><a href="../pagamentos-mercado-pago.md">Contrato implementado e histórico da integração.</a></p>
+</main></body>
+</html>

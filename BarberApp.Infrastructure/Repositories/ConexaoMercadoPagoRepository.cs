@@ -7,8 +7,16 @@ namespace BarberApp.Infrastructure.Repositories;
 
 public sealed class ConexaoMercadoPagoRepository(AppDbContext context)
     : IConexaoMercadoPagoRepository, IConsultaConexaoMercadoPagoRepository, ICredenciaisConexaoMercadoPagoRepository,
-        IPendenciaConexaoMercadoPagoRepository
+        IPendenciaConexaoMercadoPagoRepository, IRemocaoConexaoMercadoPagoRepository
 {
+    public async Task RemoverAsync(CancellationToken cancellationToken)
+    {
+        var atual = await context.ConexoesMercadoPago.SingleOrDefaultAsync(cancellationToken);
+        if (atual is null) return;
+        context.ConexoesMercadoPago.Remove(atual);
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<bool> RegistrarPendenciaAsync(CancellationToken cancellationToken)
     {
         var atual = await context.ConexoesMercadoPago.SingleOrDefaultAsync(cancellationToken);

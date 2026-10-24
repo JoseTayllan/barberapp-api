@@ -241,6 +241,16 @@ Fluxos escolhidos estão documentados, testados e não dependem de credenciais f
 
 O fluxo escolhido possui testes, idempotência e transições de estado claras; o mock não é confundido com integração de produção.
 
+### Incremento de desconexão local — GREEN completo, diff em revisão, 24/10/2026
+
+Após 9545462, mantenedor aprovou desconexão somente local e depois seus 17 testes. Implementado DELETE /api/integracoes/mercado-pago/conexao, Admin identificado + API key, 204 idempotente/no-store, remoção sem decifrar, invalidando tentativas OAuth de todos os admins. Renovação/callback/início de autorização em disputa: 409; falha ao excluir: 503 e preservação do estado. Nova autorização posterior permitida. Sem revogação remota, cobrança ou cancelamento de pagamentos.
+
+Histórico RED focado WSL: 17 casos, 15 falhos por 404/rota ausente no OpenAPI e dois aprovados pela API key existente; suíte então com 230 casos, 215 aprovados/15 falhos. Testes aprovados preservados. Caso PostgreSQL adicional confirmou RED 404 antes de implementar; GREEN focado com os 18 aprovados. Teste relacional usa escopos diferentes na mesma transação/rollback, não crash/commit durável. Estudo 14 em docs/estudos.
+
+Implementação sem migration/pacote novo: serviço de desconexão, contrato de remoção, EF SaveChanges, DI e controller; geração do cache trocada após escrita bem-sucedida. Entradas antigas ficam inacessíveis até expirar, não apagadas imediatamente. Início OAuth agora disputa a exclusividade local e pode responder 409 também durante callback/renovação; consumidores devem tratar esse conflito. Coordenação distribuída/atomicidade banco-cache e revogação remota permanecem pendentes.
+
+GREEN completo WSL: 231 aprovados (22 unitários + 209 integração), zero falhas/ignorados, PostgreSQL isolado. Build sem avisos/erros; nove C# do recorte com formatação aprovada. Program.cs mantém duas violações de whitespace legadas confirmadas em HEAD, sem corrigi-las incidentalmente; lint incluindo esse arquivo continua falhando. Testes aprovados preservados; diff final aguarda aprovação. Nenhum banco/chave/backup real alterado, sem commit/push pelo agente.
+
 ## Etapa 8 — observabilidade, CI e deploy
 
 **Estado:** `[ ] Não iniciado`

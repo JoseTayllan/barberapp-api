@@ -10,8 +10,29 @@ namespace BarberApp.API.Controllers;
 [Route("api/integracoes/mercado-pago")]
 [Authorize(Roles = "Admin")]
 public sealed class IntegracaoMercadoPagoController(
-    IConexaoMercadoPagoService service, IRenovacaoMercadoPagoService renovacaoService) : ControllerBase
+    IConexaoMercadoPagoService service, IRenovacaoMercadoPagoService renovacaoService,
+    IDesconexaoMercadoPagoService desconexaoService) : ControllerBase
 {
+    [HttpDelete("conexao")]
+    public async Task<IActionResult> DesconectarAsync(CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (string.IsNullOrWhiteSpace(User.FindFirstValue(ClaimTypes.NameIdentifier)))
+            return Unauthorized();
+
+        try
+        {
+            await desconexaoService.DesconectarAsync(cancellationToken);
+            return NoContent();
+        }
+        catch (MercadoPagoOperacaoException exception)
+        {
+            var status = exception.Codigo == "MercadoPagoOperacaoEmAndamento"
+                ? StatusCodes.Status409Conflict : StatusCodes.Status503ServiceUnavailable;
+            return Problem(statusCode: status, title: exception.Codigo);
+        }
+    }
+
     [HttpPost("renovacao")]
     public async Task<ActionResult<StatusConexaoMercadoPagoResponse>> RenovarAsync(CancellationToken cancellationToken)
     {
@@ -117,6 +138,10 @@ public sealed class IntegracaoMercadoPagoController(
         {
             return Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
                 title: "MercadoPagoNaoConfigurado");
+        }
+        catch (MercadoPagoOperacaoException exception) when (exception.Codigo == "MercadoPagoOperacaoEmAndamento")
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict, title: exception.Codigo);
         }
     }
 }

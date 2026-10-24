@@ -53,6 +53,8 @@ public sealed class ConexaoMercadoPagoService(
             throw new MercadoPagoNaoConfiguradoException();
         }
 
+        // Não admitir tentativa nova na janela entre exclusão persistida e invalidação dos states.
+        using var operacao = coordenador.Iniciar(CancellationToken.None);
         var state = Base64Url(RandomNumberGenerator.GetBytes(32));
         var verifier = Base64Url(RandomNumberGenerator.GetBytes(32));
         var challenge = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));

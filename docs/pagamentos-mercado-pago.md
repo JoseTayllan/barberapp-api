@@ -168,6 +168,31 @@ Após aprovação, os mesmos quatro testes passaram. Auxiliar agora referencia a
 
 Suíte final WSL com PostgreSQL isolado: 201 aprovados, zero falhas/ignorados; build sem avisos/erros e lint do recorte aprovado. Cópia do runtime do probe filtrada para não incluir appsettings, conferida em output novo. Prova usa dependências isoladas e keyring fictício; não valida DPAPI do perfil, segredos/configuração reais, recuperação após queda de máquina ou backup. Não executar manualmente contra o perfil real: faltam contrato seguro sem geração/rotação e revisão operacional. API de produção e DTOs intactos, sem chamada externa ou cobrança. [Estudo 11](estudos/11-provider-da-api-e-especificacao.html). Diff final em revisão.
 
+## Desconexão local — implementada, diff em revisão (24/10/2026)
+
+Após 9545462, recorte aprovado pelo mantenedor: DELETE /api/integracoes/mercado-pago/conexao, sem body de entrada. A remoção é da instalação, não da conta pessoal de cada Admin. Pode ser solicitada por outro Admin identificado. Não efetua revogação remota, reembolso, cancelamento de agendamento ou remoção de chaves do keyring.
+
+| Cenário | Resultado |
+| --- | --- |
+| API key ausente / inválida | 401 / 403 |
+| JWT ausente / Admin sem identificador | 401 |
+| Cliente ou Barbeiro | 403 |
+| Admin válido, com ou sem conexão | 204 sem corpo, no-store |
+| Credenciais locais ilegíveis, pendentes ou integração desabilitada | Remover sem decifrar nem chamar provedor |
+| Renovação/callback/exclusão em andamento | 409 MercadoPagoOperacaoEmAndamento |
+| Tentativa de iniciar OAuth durante exclusão | 409 MercadoPagoOperacaoEmAndamento |
+| Falha de persistência da exclusão | 503 MercadoPagoPersistenciaFalhou, sem detalhes privados |
+
+Após sucesso: nenhum registro local, GET status mantém contrato de quatro campos (NaoConectado e metadados nulos); renovação recebe 409 MercadoPagoNaoConectado. Invalidar states anteriores de todos os admins mesmo se não havia registro. Callback antigo recebe 400 MercadoPagoCallbackInvalido sem chamada ao provedor; novo OAuth após desconexão é permitido. Em falha de escrita, preservar conexão e tentativas, liberar exclusividade para recuperação/retry manual.
+
+Exclusividade é local à instância. POST autorizacao também retorna 409 durante outra operação alteradora (renovação/callback/exclusão): consumidores devem tratar conflito, não reenviar automaticamente. Sem garantia entre instâncias ou atomicidade banco/cache após crash. Não confundir apagar tokens locais com invalidá-los no provedor. Provedor simulado em todos os testes; zero autorizações/credenciais reais utilizadas.
+
+MercadoPagoDisconnectionTests: RED inicial WSL com 15 falhas por rota ausente/404 ou ausência no OpenAPI e dois aprovados. Após aprovação humana, os 17 foram preservados integralmente durante implementação. Novo teste HTTP PostgreSQL confirmou RED por 404 antes da implementação; GREEN focado dos 18. Caso relacional verifica idempotência/exclusão entre escopos na mesma transação com rollback, não commit durável nem crash. Material: [estudo 14](estudos/14-desconexao-local-e-revogacao.html).
+
+DesconexaoMercadoPagoService adquire coordenador, chama o contrato IRemocaoConexaoMercadoPagoRepository e invalida states somente após sucesso. Repositório remove a linha com SaveChangesAsync, sem decifrar, e não faz nada se ausente. Store muda geração Guid sob lock; nomes de cache incluem geração, tornando states antigos inacessíveis a consulta/consumo. Entradas anteriores permanecem até expiração original de dez minutos; não se faz enumeração ou limpeza global do cache. Sem migration, pacote novo, chamada remota ou alteração do pagamento mock.
+
+GREEN completo no WSL com PostgreSQL isolado: 231 aprovados, zero falhas/ignorados; build sem avisos/erros. Formatação aprovada nos nove C# restantes do recorte; Program.cs continua com duas violações legadas de whitespace, confirmadas em HEAD e preservadas. Lint integral não aprovado; revisão humana final pendente. Não há confirmação de pagamentos reais ou revogação remota por este GREEN.
+
 ## Referências oficiais
 
 - [Authorization code, state e PKCE](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation).

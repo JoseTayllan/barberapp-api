@@ -648,3 +648,13 @@ Suíte WSL anterior com PostgreSQL isolado: 213 aprovados, zero falhas/ignorados
 Em 24/10/2026, após consentimento específico para o keyring compartilhado e ajuste de ACL, o mantenedor confirmou cópia de dois XMLs e restauração em outra pasta privada, com integridade SHA-256 conferida localmente sem divulgar material. api-recuperar apontado explicitamente para a pasta restaurada retornou Recuperado/código 0, no mesmo contexto Windows/usuário, usando texto fictício. Não usar perfil-recuperar para validar a cópia: ele leria o original. Veja [registro e limites](docs/operacao/backup-keyring-mesmo-windows.md) e [estudo 13](docs/estudos/13-backup-no-mesmo-contexto.html).
 
 Essa prova não cobre perda do perfil/DPAPI, formatação, outro computador, crash ou tokens reais. ACLs verificadas nas pastas, não em cada XML; nenhuma comparação pós-recuperação final foi apresentada. Artefatos preservados, sem alteração da configuração da API. Esta atualização é documental; não repete a suíte anterior.
+
+### Desconexão local — implementação em revisão
+
+DELETE /api/integracoes/mercado-pago/conexao exige API key + JWT Admin identificado, retorna 204/no-store inclusive se já desconectado. Remove credenciais locais e invalida tentativas OAuth anteriores de todos os administradores; não revoga autorização remota. Operações alteradoras/início OAuth em disputa retornam 409; falha de persistência retorna 503 sem apagar o estado anterior. POST autorizacao também pode retornar conflito durante renovação/callback/exclusão.
+
+Especificação aprovada: 17 testes HTTP com InMemory e provedor simulado, preservados durante implementação. RED inicial com 15 falhas por rota/OpenAPI ausente e dois aprovados. Novo caso PostgreSQL HTTP escrito antes da implementação também confirmou RED por 404. GREEN focado: os 18 passaram. Ver [contrato](docs/pagamentos-mercado-pago.md) e [estudo 14](docs/estudos/14-desconexao-local-e-revogacao.html).
+
+A invalidação troca a geração das chaves no cache: states antigos deixam de ser aceitos, mas suas entradas só expiram pelo TTL original de dez minutos. Não é apagamento imediato da memória. Sem migration ou pacote novo. O teste relacional usa escopos distintos na mesma transação revertida; não prova commit durável/crash, atomicidade banco/cache ou coordenação entre processos. Não foram alterados o banco da aplicação, o keyring ou backups reais.
+
+GREEN completo WSL com PostgreSQL isolado: 231 aprovados (22 unitários + 209 integração), zero falhas/ignorados. Build sem avisos/erros. Formatação aprovada nos nove C# do recorte exceto Program.cs, que mantém dois erros de whitespace anteriores à feature, confirmados em HEAD; lint integral não está aprovado. Diff final aguarda revisão humana.
