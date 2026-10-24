@@ -139,6 +139,7 @@ namespace BarberApp.Application.Services
                 barbeiroId,
                 servicoId,
                 dataHoraUtc,
+                servico.Preco,
                 observacao);
 
             await _agendamentoRepo.AdicionarAsync(agendamento);

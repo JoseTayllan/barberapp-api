@@ -57,7 +57,8 @@ public class AgendamentosController : ControllerBase
             a.Servico!.Nome,
             a.Servico!.Preco,
             a.DataHora,
-            a.Status.ToString()));
+            a.Status.ToString(),
+            a.PrecoAgendado));
 
         return Ok(response);
     }
@@ -97,7 +98,8 @@ public class AgendamentosController : ControllerBase
             a.Servico!.Nome,
             a.Servico!.Preco,
             a.DataHora,
-            a.Status.ToString()));
+            a.Status.ToString(),
+            a.PrecoAgendado));
     }
 
     [HttpPost]
@@ -116,7 +118,7 @@ public class AgendamentosController : ControllerBase
                 request.Observacao);
 
             return CreatedAtAction(nameof(ObterPorId), new { id = agendamento.Id },
-                new { agendamento.Id, agendamento.DataHora, Status = agendamento.Status.ToString() });
+                new { agendamento.Id, agendamento.DataHora, Status = agendamento.Status.ToString(), agendamento.PrecoAgendado });
         }
         catch (Exception ex)
         {

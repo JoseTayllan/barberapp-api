@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 16 — Checkout não é pagamento aprovado</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Uma URL de checkout não significa dinheiro recebido</h1>
+  <p>24/10/2026. Desenho e perguntas para você decidir. Nenhum código ou teste novo implementado; nenhum contrato abaixo deve ser confundido com decisão já aprovada.</p>
+  <section>
+    <h2>A revogação não foi esquecida</h2>
+    <p>Você aprovou seguir para checkout simulado, exigindo resolver a revogação depois. Ela está registrada como gate antes de dinheiro real. Não confirmamos contrato público suficiente aplicável ao nosso OAuth; isso não prova que não exista.</p>
+    <p>Não criaremos um mock de um endpoint inventado para exibir testes verdes. Precisamos confirmar documentação/escopos/respostas e depois testar sucesso, falha e resultado incerto. A desconexão local já entregue não afirma revogação remota.</p>
+  </section>
+  <section>
+    <h2>Por que não reaproveitar a aprovação do mock?</h2>
+    <p>Hoje PagamentoService chama o mock e aprova imediatamente o pagamento. Um checkout apenas inicia a jornada: o cliente ainda pode abandonar, ter pagamento recusado ou pagar depois. Trocar o mock por um gerador de URL mantendo a mesma semântica aprovaria algo que não foi pago.</p>
+    <p>Propomos uma rota separada. Criar checkout não deve aprovar Pagamento ou confirmar Agendamento. Confirmação de pagamento exige um fluxo posterior de consulta/notificação validada; o retorno do navegador não é prova financeira.</p>
+  </section>
+  <section>
+    <h2>As decisões vêm antes dos testes</h2>
+    <p>O domínio possui agendamentos Pendente, Confirmado, Cancelado e Concluido. Precisamos decidir quais podem pagar e como preço/prazo são fixados. Essas são regras do produto, não fatos que o gateway decide por nós.</p>
+    <p>Proposta para discutir: cliente paga somente agendamento próprio, valor vem do servidor e criar URL não altera o estado do agendamento. Isso não define ainda quando confirmar uma reserva, como reembolsar ou qual preço preservar se o serviço mudar.</p>
+    <p>Preferences e Orders são alternativas oficiais de Checkout Pro. Orders documenta idempotência por header; compatibilidade dos tokens OAuth/ambiente atuais ainda precisa ser validada. Não misturar formatos ou presumir que todo recurso usa o mesmo modelo de testes.</p>
+  </section>
+  <section>
+    <h2>Idempotência e incerteza</h2>
+    <p>Se o cliente tocar duas vezes, não queremos duas operações independentes sem controle. Precisamos preservar a identidade da tentativa e seu resultado. Um timeout pode ocorrer depois de o provedor criar o recurso: não significa que nada aconteceu.</p>
+    <p>Planejar persistência, concorrência e reconciliação antes de automatizar reenvios. Nem gerar outra chave às cegas nem marcar sucesso sem confirmação. Nesta etapa não houve chamada autenticada ou cobrança real.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Criou a URL: já podemos aprovar pagamento?</summary><p>Não. A URL abre a jornada; ainda não comprova pagamento concluído.</p></details>
+    <details><summary>2. Por que preço não vem livremente do navegador?</summary><p>Porque o consumidor poderia adulterá-lo. A API deve determinar o valor segundo a regra de preço aprovada para o agendamento.</p></details>
+    <details><summary>3. TDD resolve uma regra de negócio indefinida?</summary><p>Não por si só. Testes precisam de comportamento esperado acordado; caso contrário apenas cristalizam uma hipótese não aprovada.</p></details>
+    <details><summary>4. Timeout significa que o provedor não criou nada?</summary><p>Não. Pode ter criado antes de perdermos a resposta; precisamos tratar resultado incerto.</p></details>
+    <details><summary>5. Revogação remota está pronta porque podemos desconectar?</summary><p>Não. Ela continua pendente e registrada explicitamente, com critérios próprios antes de uso real.</p></details>
+  </section>
+  <p><a href="../pagamentos-mercado-pago.md">Registro, propostas e referências oficiais.</a></p>
+</main></body>
+</html>

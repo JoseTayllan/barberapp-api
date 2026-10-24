@@ -66,6 +66,9 @@ namespace BarberApp.Infrastructure.Data
             modelBuilder.Entity<Agendamento>(e =>
             {
                 e.HasKey(a => a.Id);
+                e.ToTable("Agendamentos", table => table.HasCheckConstraint(
+                    "CK_Agendamentos_PrecoAgendadoPositivo", "\"PrecoAgendado\" IS NULL OR \"PrecoAgendado\" > 0"));
+                e.Property(a => a.PrecoAgendado).HasColumnType("numeric(10,2)");
 
                 e.HasOne(a => a.Cliente)
                    .WithMany()

@@ -14,6 +14,7 @@ namespace BarberApp.Domain.Entities
         public DateTime DataHora { get; private set; }
         public StatusAgendamento Status { get; private set; } = StatusAgendamento.Pendente;
         public string? Observacao { get; private set; }
+        public decimal? PrecoAgendado { get; private set; }
 
         //Navegação (EF Core usa isso para fazer os JOINs)
         public Cliente? Cliente { get; private set; }
@@ -30,6 +31,16 @@ namespace BarberApp.Domain.Entities
             ServicoId = servicoId;
             DataHora = dataHora;
             Observacao = observacao;
+        }
+
+        public Agendamento(Guid clienteId, Guid barbeiroId, Guid servicoId, DateTime dataHora,
+            decimal precoAgendado, string? observacao = null)
+            : this(clienteId, barbeiroId, servicoId, dataHora, observacao)
+        {
+            if (precoAgendado <= 0)
+                throw new ArgumentOutOfRangeException(nameof(precoAgendado), "Preço agendado deve ser maior que zero.");
+
+            PrecoAgendado = precoAgendado;
         }
 
         public void Confirmar()

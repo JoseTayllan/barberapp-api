@@ -193,6 +193,32 @@ DesconexaoMercadoPagoService adquire coordenador, chama o contrato IRemocaoConex
 
 GREEN completo no WSL com PostgreSQL isolado: 231 aprovados, zero falhas/ignorados; build sem avisos/erros. Formatação aprovada nos nove C# restantes do recorte; Program.cs continua com duas violações legadas de whitespace, confirmadas em HEAD e preservadas. Lint integral não aprovado; revisão humana final pendente. Não há confirmação de pagamentos reais ou revogação remota por este GREEN.
 
+## Pendência de revogação e preparação do Checkout Pro — 24/10/2026
+
+O mantenedor autorizou avançar com Checkout Pro simulado e exigiu resolver a revogação depois. Revogação automática permanece aberta, gate antes de uso real: a documentação pesquisada descreve o efeito, mas não foi confirmado contrato executável aplicável à nossa integração. Isso não demonstra inexistência de endpoint. Não importar automaticamente contrato do Mercado Livre nem confundir desconexão local com revogação remota.
+
+Para fechar: confirmar oficialmente host/autenticação/escopos/método/respostas/erros; especificar testes para sucesso confirmado, recusa e resultado incerto; implementar depois de RED/revisão, validar persistência e revisar diff. Nenhuma mensagem ao suporte, conta conectada ou chamada autenticada foi autorizada/executada por esta pesquisa.
+
+Checkout Pro segue em desenho. Existem alternativas oficiais [Preferences](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro-preferences/create-preference/post) e [Orders](https://www.mercadopago.com.br/developers/pt/reference/online-payments/checkout-pro/create-order/post). Orders documenta POST /v1/orders, X-Idempotency-Key e checkout_url; isso não confirma que os tokens OAuth/ambiente de teste atuais funcionarão nesse recurso. Não misturar os payloads/respostas ou copiar exemplos de cobrança/split. Nenhuma dessas APIs foi chamada.
+
+Regras posteriormente aprovadas: cliente paga somente reserva própria futura Pendente/Confirmada; criação de checkout não aprova pagamento nem confirma agendamento; valor combinado na criação da reserva, sem reajuste retroativo quando serviço muda. Endpoint separado do mock continua proposta para preservar semântica. Cobrir autenticação/propriedade, configuração opt-in, conexão indisponível, duplicidade, timeout e resultado incerto, sigilo e compatibilidade. Validade, política completa de transições e escolha Preferences/Orders continuam pendentes.
+
+Consulta oficial de revogação: [gestão de tokens Mercado Pago](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/management) e [referência OAuth](https://www.mercadopago.com.br/developers/pt/reference/authentication/oauth/overview). O [endpoint de revogação documentado no Mercado Livre](https://developers.mercadolivre.com.br/pt_br/tendencias/gerencie-seu-aplicativo) não foi validado para nosso produto/credencial. Estudo: [16 — decisões antes do checkout](estudos/16-checkout-nao-e-pagamento.html).
+
+Somente documentos nesta atualização; nenhum RED/GREEN funcional alegado. Testes não repetidos, última evidência de 231 aprovados pertence ao incremento anterior. Diff documental aguarda revisão humana.
+
+## Preço agendado — implementado após aprovação, diff em revisão, 24/10/2026
+
+Mantenedor aprovou preservar o preço combinado na reserva. Antes deste incremento, listagem/detalhe liam precoServico do cadastro e PagamentoService mock usava esse preço atual; o RED reproduziu cobrança de 50 após reserva criada a 40. A implementação agora usa preço congelado para novas reservas, preservando o campo legado de consulta. Não implementar checkout sobre cálculo variável.
+
+Contrato adicional implementado: precoAgendado em POST/GET/listagem de agendamentos; sem remover campos antigos ou alterar significado/tipo de precoServico. Novos registros capturam preço positivo consultado no servidor durante criação, sem confiar em preço informado pelo navegador. Mudança posterior de cadastro/confirmar/cancelar reserva não recalcula. Mock usa snapshot quando disponível; em legado null conserva preço atual exclusivamente para preservar o fluxo simulado anterior, sem gravar histórico inventado. Mantém resposta/gateway/status anteriores; nenhuma chamada real. O fallback de legado não é regra aprovada para checkout real.
+
+Legados sem histórico: precoAgendado null aprovado pelo mantenedor. Migration 20261024233033_AddPrecoAgendado gera nullable numeric(10,2), sem default/backfill e constraint de positividade quando preenchido. Aplicada somente ao PostgreSQL isolado de testes. Teste confere schema e INSERT legado omitindo coluna, não upgrade de registros já existentes antes da migration; SQL revisado não contém UPDATE. Cobrança/regularização desses registros ainda precisa de decisão antes do checkout real.
+
+Histórico RED WSL: 16 casos, 13 falhos/três aprovados (campo ausente, mock 50 em vez de 40 e preços inválidos). Mantenedor aprovou antes da implementação; arquivo preservado. Caso PostgreSQL adicional confirmou RED por coluna ausente; GREEN focado com os 16 mais PostgreSQL e caracterização de mock legado, 18 aprovados. O teste relacional usa contextos distintos na mesma transação e savepoints, com rollback de dados; não prova commit durável/crash. [Estudo 17](estudos/17-preco-combinado-e-contratos.html).
+
+GREEN completo WSL: 249 aprovados (22 unitários + 227 integração), zero falhas/ignorados. Build sem avisos/erros; modelo EF consistente. Lint integral segue falhando em trechos legados de AgendamentoService/Agendamento/AppDbContext, não normalizados nesta feature. Nenhuma migração no banco da aplicação. [Procedimento local/risco de rollback](operacao/migracao-preco-agendado.md), [SQL para revisão](sql/20261024233033_AddPrecoAgendado.sql). Aplicar somente após revisão e confirmação do ambiente; API recompilada depende da coluna. Down remove preço combinado e exige decisão/backup, não execução automática. Frontend precisa consumir o campo novo; não alterado neste repositório.
+
 ## Referências oficiais
 
 - [Authorization code, state e PKCE](https://www.mercadopago.com.br/developers/pt/docs/security/oauth/creation).

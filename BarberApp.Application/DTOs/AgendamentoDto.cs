@@ -7,7 +7,8 @@ public record AgendamentoResponse(
     string NomeServico,
     decimal PrecoServico,
     DateTime DataHora,
-    string Status
+    string Status,
+    decimal? PrecoAgendado = null
 );
 
 public record CriarAgendamentoRequest(

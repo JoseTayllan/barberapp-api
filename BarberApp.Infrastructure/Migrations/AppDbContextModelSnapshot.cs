@@ -46,6 +46,9 @@ namespace BarberApp.Infrastructure.Migrations
                     b.Property<string>("Observacao")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("PrecoAgendado")
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<Guid>("ServicoId")
                         .HasColumnType("uuid");
 
@@ -61,7 +64,10 @@ namespace BarberApp.Infrastructure.Migrations
 
                     b.HasIndex("ServicoId");
 
-                    b.ToTable("Agendamentos");
+                    b.ToTable("Agendamentos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Agendamentos_PrecoAgendadoPositivo", "\"PrecoAgendado\" IS NULL OR \"PrecoAgendado\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("BarberApp.Domain.Entities.Barbeiro", b =>

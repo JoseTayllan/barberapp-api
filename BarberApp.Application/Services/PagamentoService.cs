@@ -36,12 +36,14 @@ namespace BarberApp.Application.Services
             if (pagamentoExistente?.Status == Domain.Enums.StatusPagemento.Aprovado)
                 throw new Exception("Pagamento já processado para este agendamento.");
 
-            var pagamento = new Pagamento(agendamentoId, agendamento.Servico.Preco);
+            // Fallback somente do mock legado; não representa preço histórico conhecido.
+            var valor = agendamento.PrecoAgendado ?? agendamento.Servico.Preco;
+            var pagamento = new Pagamento(agendamentoId, valor);
             await _pagamentoRepo.AdicionarAsync(pagamento);
 
             var request = new PaymentRequest(
                 agendamentoId,
-                agendamento.Servico.Preco,
+                valor,
                 agendamento.Servico.Nome,
                 emailCliente
                 );

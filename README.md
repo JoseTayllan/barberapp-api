@@ -662,3 +662,13 @@ GREEN completo WSL com PostgreSQL isolado: 231 aprovados (22 unitários + 209 in
 ### Limpeza dedicada de formatação — após 30ab1eb
 
 Os dois trechos de espaços do Program.cs foram corrigidos em mudança separada, sem diferença de código ao ignorar whitespace. A checagem focada do formatter falhou antes e passou depois; build sem avisos/erros e 231 testes aprovados no WSL com PostgreSQL isolado, zero falhas/ignorados. Nenhum teste alterado. O lint global ainda falha em outros arquivos legados, preservados fora do escopo. Veja [estudo 15](docs/estudos/15-formatacao-sem-mudar-comportamento.html). Diff desta limpeza aguarda revisão humana; não é implementação de revogação remota.
+
+### Preparação do checkout — preço combinado, implementação em revisão
+
+Regras aprovadas para o checkout futuro: cliente paga apenas reserva própria futura Pendente/Confirmada, sem aprovar pagamento/confirmar reserva só por gerar URL. Neste incremento, preço preservado na criação da reserva com campo adicional precoAgendado; precoServico continua sendo preço atual do cadastro. Legado sem histórico permanece null. Mock de novas reservas usa o combinado, sem alterar campos/status/gateway; legado null conserva cálculo anterior exclusivamente no mock, não uma política aprovada para checkout real.
+
+AgendamentoPriceSnapshotTests: RED inicial com 13 falhas/três aprovados; após aprovação, os mesmos 16 passaram sem alteração. Novo teste PostgreSQL confirmou coluna ausente antes da implementação e passou depois; caracterização adicional protege o mock legado. GREEN completo WSL com PostgreSQL isolado: 249 aprovados (22 unitários + 227 integração), zero falhas/ignorados; build sem avisos/erros e modelo EF consistente. [Estudo 17](docs/estudos/17-preco-combinado-e-contratos.html). Revogação remota permanece gate obrigatório; checkout ainda não implementado.
+
+Migration 20261024233033_AddPrecoAgendado adiciona coluna nullable numeric(10,2), sem default/backfill, e constraint de positividade. Aplicada apenas ao banco isolado dos testes. **Antes de usar a API recompilada no banco local**, revisar/aplicar a migration separadamente: [procedimento e riscos](docs/operacao/migracao-preco-agendado.md), [SQL](docs/sql/20261024233033_AddPrecoAgendado.sql). Não executar Down automaticamente: apaga preços combinados. Frontend não foi modificado e precisará usar precoAgendado para mostrar o valor da reserva.
+
+Lint integral continua pendente em trechos legados de AgendamentoService, Agendamento e AppDbContext; sem correção incidental. Nenhum segredo, banco da aplicação, chave ou backup alterado. Diff final aguarda revisão humana, sem commit/push pelo agente.

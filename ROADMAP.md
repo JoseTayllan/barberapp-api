@@ -238,6 +238,21 @@ Fluxos escolhidos estão documentados, testados e não dependem de credenciais f
 - Quando o agendamento muda de estado após o pagamento?
 - Como serão tratados reembolso e conciliação?
 
+### Pendência obrigatória — revogação remota, 24/10/2026
+
+- `[!]` Não concluída: confirmar oficialmente o contrato de revogação aplicável ao OAuth Mercado Pago desta instalação. A pesquisa não confirmou endpoint suficiente; isso não prova que ele inexiste. Não copiar o endpoint do Mercado Livre presumindo compatibilidade nem criar mock que certifique um contrato inventado.
+- Mantenedor autorizou avançar com Checkout Pro simulado, exigindo resolver a revogação depois. Ela permanece gate antes de pagamentos reais, não uma dívida encerrada pelo DELETE local. Responsável pelo acompanhamento: agente principal com decisão/revisão do mantenedor; não há data ou atendimento de suporte confirmado.
+- Critérios para fechar: referência/confirmação oficial aplicável (host, autenticação, escopos, método, resposta e erros), testes RED/revisão/GREEN para resultado confirmado/incerto e persistência, documentação e revisão final. Eventual operação em conta real exige autorização separada. Não abrir ticket/enviar mensagens ao provedor automaticamente.
+- Próximo recorte: preparar testes do Checkout Pro sem chamar conta real. Preferences e Orders são alternativas; Orders documenta X-Idempotency-Key, mas sua compatibilidade com OAuth/ambiente da instalação precisa ser validada, não presumida. Escolha técnica e regras de pagamento/estado do agendamento ainda em discussão, sem implementação ou teste novo nesta atualização. Estudo 16 em docs/estudos.
+
+### Regras aprovadas e preço combinado — GREEN, diff em revisão, 24/10/2026
+
+- Mantenedor aprovou: cliente pode pagar somente agendamento próprio futuro, Pendente ou Confirmado; não Cancelado/Concluido. Gerar checkout não altera aprovação do pagamento nem confirma reserva. Preço deve ser o combinado na criação do agendamento, não preço posterior do serviço.
+- Histórico: testes iniciais de preço, campo adicional precoAgendado sem mudar significado de precoServico, mudança de cadastro/estado, body adulterado, centavos, preço inválido, mock e null para legado. RED focado 16 casos, 13 falhos/três aprovados; suíte então 247 casos, 234 aprovados/13 falhos. Mantenedor aprovou a especificação e null para legados.
+- Implementado depois da aprovação, mantendo os 16 intactos. Novo construtor captura preço positivo na criação, DTO/controller expõem campo adicional; mock usa snapshot quando existe, preservando cálculo anterior somente para legado null. Nenhum checkout ou aprovação de dinheiro real. Frontend ainda não usa o novo campo.
+- Novo teste PostgreSQL confirmou RED por coluna ausente antes de implementar; migration 20261024233033_AddPrecoAgendado, designer/snapshot/SQL: nullable numeric(10,2), sem default/backfill, constraint null ou positivo. PostgreSQL isolado confirma schema, INSERT legado sem campo, centavos entre contextos e rejeição de zero/negativo, com rollback dos dados. Não ensaia upgrade de dados históricos ou crash. Caracterização adicional de mock legado sem RED funcional próprio.
+- GREEN completo WSL: 249 aprovados (22 unitários + 227 integração), zero falhas/ignorados; build sem avisos/erros, EF sem mudanças pendentes. Formatter acusa trechos legados de AgendamentoService/Agendamento/AppDbContext, preservados. Diff final e SQL precisam revisão; não aplicar ao banco local automaticamente. API recompilada depende da migration; Down perde preço registrado. Estudo 17 e procedimento docs/operacao/migracao-preco-agendado.md. Escolha Preferences/Orders, validade/reconciliação, legados no checkout e revogação remota continuam abertos.
+
 ### Critério de conclusão
 
 O fluxo escolhido possui testes, idempotência e transições de estado claras; o mock não é confundido com integração de produção.

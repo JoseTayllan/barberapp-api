@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 17 — Preço combinado e contratos</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>O serviço mudou de preço. A reserva também muda?</h1>
+  <p>24/10/2026. Você aprovou a regra, os 16 testes e null para legados. Implementamos depois sem alterar esses testes. GREEN WSL: 249 aprovados, zero falhas/ignorados. Diff final ainda em revisão.</p>
+  <section>
+    <h2>O problema que conseguimos reproduzir</h2>
+    <p>Cliente agenda por R$ 40. O dono muda o serviço para R$ 50. Antes da correção, o mock cobrava R$ 50 porque consultava o preço atual do cadastro. O teste esperava 40 e recebeu 50: RED funcional, não erro do ambiente. Agora a nova reserva preserva e usa os 40.</p>
+    <p>Antes de montar um checkout real, precisamos de uma fonte confiável para o preço da reserva. Não queremos integrar um gateway corretamente e cobrar o valor errado.</p>
+  </section>
+  <section>
+    <h2>Dois campos, duas perguntas</h2>
+    <p>precoServico já significa preço atual do serviço na consulta. Preservamos esse campo e acrescentamos precoAgendado, que responde quanto foi combinado naquela reserva. Não trocamos silenciosamente o significado do campo anterior.</p>
+    <p>Depois da mudança de cadastro, uma reserva anterior terá precoServico 50 e precoAgendado 40; uma nova reserva terá ambos 50. O checkout futuro deverá usar o combinado. A apresentação desse novo campo no frontend exige trabalho próprio, ainda não feito.</p>
+    <p>Não confiar em preço livre no navegador. Os testes enviam 0,01 como tentativa de adulteração e exigem que o servidor capture os 40 do serviço. Também verificam valores com centavos, sem converter dinheiro em double.</p>
+  </section>
+  <section>
+    <h2>E as reservas antigas?</h2>
+    <p>Sem um preço gravado no passado, não sabemos qual foi o valor combinado. Você aprovou representar esse desconhecimento como null, não zero e não o preço atual disfarçado de histórico.</p>
+    <p>A migration acrescenta nullable numeric(10,2), sem default/backfill, e uma constraint: null ou maior que zero. Foi aplicada somente no PostgreSQL de testes; ainda não no banco da API. A API recompilada precisa dessa coluna antes do uso local.</p>
+    <p>Para preservar o mock legado, quando não há snapshot ele mantém o cálculo anterior de preço atual, sem preencher histórico. Isso não decide cobrança real de legado nem autoriza usar esse fallback no checkout. A regularização ainda exige regra própria.</p>
+  </section>
+  <section>
+    <h2>Por que testar também o mock?</h2>
+    <p>Ele é o pagamento ativo e já consegue demonstrar o cálculo errado. O teste mantém campos, gateway Mock, prefixo de transação e status Aprovado, mas exige o preço correto para novas reservas. Isso não transforma aprovação simulada em pagamento real.</p>
+    <p>Criar checkout continuará separado: obter uma URL não aprova pagamento nem confirma agendamento. Revogação remota permanece pendente no roadmap.</p>
+  </section>
+  <section>
+    <h2>O RED exato</h2>
+    <p>16 casos no WSL: 13 falhos/três aprovados. Dez falham pelo novo campo ausente; um reproduz 50 no lugar de 40; dois mostram preço não positivo aceito no agendamento, apesar de o validator do cadastro de serviço já exigir preço positivo. Autenticação preservada nos três verdes.</p>
+    <p>Falhar na primeira asserção impede avaliar as seguintes. Na etapa RED, snapshot funcionando ainda não estava comprovado. A suíte então tinha 247 casos, 234 aprovados/13 falhos. Você revisou antes da implementação, e os testes não foram enfraquecidos durante GREEN.</p>
+    <p>Depois, outro teste confirmou coluna ausente no PostgreSQL antes de implementar. Agora verifica schema, INSERT legado omitindo coluna, centavos entre contextos e rejeição de zero/negativo. Usa transação/savepoints e rollback; não prova upgrade histórico, commit durável ou crash.</p>
+    <p>GREEN final WSL: 249 aprovados (22 unitários + 227 integração), zero falhas/ignorados. Build sem avisos/erros e EF sem mudança pendente de modelo. Formatter passa nos demais arquivos afetados, mas acusa trechos legados em AgendamentoService/Agendamento/AppDbContext; não declaramos lint integral aprovado.</p>
+  </section>
+  <section>
+    <h2>Onde está cada responsabilidade?</h2>
+    <p>A entidade guarda PrecoAgendado com setter privado e valida preço positivo na sobrecarga nova. O service escolhe o preço consultado no servidor. O controller só expõe o valor no contrato; não calcula a cobrança. EF mapeia decimal/nullable e o banco reforça positividade quando preenchido.</p>
+    <p>Confirmar e cancelar não mudam o preço. PagamentoService reutiliza o snapshot tanto no registro de Pagamento quanto no PaymentRequest do mock; não basta corrigir um e enviar outro valor ao gateway.</p>
+    <p>Migration e SQL precisam de sua revisão antes da aplicação local. Down apaga os preços combinados, portanto rollback não é inofensivo. Não aplicamos automaticamente ao banco da API ou mudamos o frontend.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. O que é um snapshot de preço?</summary><p>Uma cópia do valor combinado, registrada na reserva e independente de alterações posteriores no cadastro do serviço.</p></details>
+    <details><summary>2. Por que não substituir precoServico?</summary><p>Consumidores já podem usá-lo como preço atual. Um campo adicional explicita o novo conceito sem renomear ou mudar silenciosamente o campo anterior.</p></details>
+    <details><summary>3. Por que null e não zero para um legado?</summary><p>Null significa que não conhecemos o valor histórico. Zero seria um valor conhecido e poderia sugerir serviço gratuito.</p></details>
+    <details><summary>4. Quem determina o preço da nova reserva?</summary><p>O servidor, consultando o serviço. Valores extras enviados pelo navegador não devem decidir a cobrança.</p></details>
+    <details><summary>5. Confirmar a reserva deve atualizar seu preço?</summary><p>Não pela regra aprovada. Confirmar ou cancelar muda o estado, não o acordo de preço já registrado.</p></details>
+    <details><summary>6. Por que o mock legado ainda pode mostrar o preço atual?</summary><p>Para conservar o fluxo simulado anterior quando não há histórico. O registro continua null: isso não inventa acordo passado nem aprova a mesma política para dinheiro real.</p></details>
+    <details><summary>7. Posso executar Down sem avaliar os dados?</summary><p>Não. Ele remove a coluna e perde valores combinados registrados. Exige decisão explícita, backup e avaliação do impacto.</p></details>
+  </section>
+  <p><a href="../pagamentos-mercado-pago.md">Contrato implementado, riscos e pendências.</a> · <a href="../operacao/migracao-preco-agendado.md">Cuidados antes da migration local.</a></p>
+</main></body>
+</html>
