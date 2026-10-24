@@ -17,8 +17,8 @@
 </head>
 <body><main>
   <h1>Backup só serve se a recuperação ler a cópia certa</h1>
-  <p>Escopo escolhido: mesmo Windows e usuário, com o contexto DPAPI preservado. Não cobre formatação, perda do perfil ou outro computador. Somente chaves fictícias foram copiadas nesta etapa.</p>
-  <p>GREEN WSL: 213 aprovados (22 unitários + 191 integração), zero falhas/ignorados; build sem avisos/erros e formatação aprovada. Um novo teste de caracterização passou de primeira, sem alteração da implementação. Diff em revisão.</p>
+  <p>Escopo escolhido: mesmo Windows e usuário, com o contexto DPAPI preservado. Não cobre formatação, perda do perfil ou outro computador. A fixture usa chaves fictícias; depois houve cópia autorizada das chaves do perfil e recuperação nativa de texto fictício.</p>
+  <p>GREEN WSL anterior: 213 aprovados (22 unitários + 191 integração), zero falhas/ignorados; build sem avisos/erros e formatação aprovada. Caracterização publicada em 932921a. Atualização de 24/10/2026 apenas documental, sem repetir a suíte; novo diff em revisão.</p>
   <section>
     <h2>O que já sabíamos?</h2>
     <p>No estudo 12 você protegeu e recuperou um texto fictício em processos separados no Windows usando o keyring do perfil. Isso demonstrou leitura nesse contexto; não demonstrou que uma cópia de backup poderia ser restaurada.</p>
@@ -38,7 +38,7 @@
   <section>
     <h2>A armadilha do falso sucesso</h2>
     <p>Se você restaurar numa pasta e executar perfil-recuperar, ele vai consultar o keyring padrão original. Poderia funcionar mesmo com a cópia vazia! Esse resultado não comprovaria restauração.</p>
-    <p>Por isso o procedimento futuro usará apenas api-recuperar apontado explicitamente para a pasta restaurada aprovada. Não usar api-proteger contra material real. Nada será restaurado sobre o original para provar um cenário.</p>
+    <p>Por isso a prova nativa usou api-recuperar apontado explicitamente para a pasta restaurada aprovada. Não usar api-proteger contra material real. Nada foi restaurado sobre o original para provar o cenário.</p>
   </section>
   <section>
     <h2>Mesmo Windows não é qualquer Windows</h2>
@@ -58,17 +58,27 @@
   <section>
     <h2>Antes de qualquer cópia real</h2>
     <p>Revisar teste/procedimento, escolher destino persistente fora de Git e temporário, conferir ACL, reconhecer o keyring compartilhado e autorizar especificamente a cópia. Inspeção de opções e cópia de material protegido são operações diferentes.</p>
-    <p>Nenhum segredo real foi copiado, enviado ao WSL ou exposto. Não alteramos a API, a criptografia, a conta Mercado Pago ou o keyring original. A restauração nativa da cópia ainda está pendente.</p>
+    <p>Essas autorizações foram concedidas para a operação de 24/10. Dois XMLs protegidos foram copiados pelo mantenedor para backup privado e depois restaurados em outra pasta; nenhum conteúdo foi publicado ou enviado ao WSL. Não alteramos a API, a conta Mercado Pago ou o diretório original.</p>
+  </section>
+  <section>
+    <h2>O que você comprovou no Windows?</h2>
+    <p>Com a API parada e ACLs das pastas restritas ao usuário, SYSTEM e administradores, você confirmou integridade SHA-256 nas etapas de cópia. Depois api-recuperar leu exclusivamente a pasta restaurada e retornou Recuperado, processo 3140, saída 0, com a mesma identidade de contexto da prova anterior.</p>
+    <p>O auxiliar validou o texto fictício esperado, não tokens reais. O arquivo candidato mais recente foi localizado por data; só o horário não comprova sua origem. Não comparamos os XMLs após essa recuperação final nem auditamos ACL individual: não prometer imutabilidade absoluta ou certificação completa.</p>
+    <h2>Por que a primeira cópia ficou vazia?</h2>
+    <p>A variável com a lista de arquivos estava nula. Compare-Object falhou e foreach não tinha itens para copiar. Comandos executados separadamente no terminal continuaram apesar do erro anterior. A pasta vazia não era um backup.</p>
+    <p>A correção operacional usou um único bloco com variáveis locais, ErrorActionPreference Stop e validações. Copiar todo o bloco evita depender da memória de outra sessão. Arquivos existentes não foram sobrescritos nem apagados.</p>
   </section>
   <section>
     <h2>Exercícios com respostas</h2>
     <details><summary>1. Por que copiar do backup para o restaurado?</summary><p>Para provar o caminho que seria usado na recuperação. Copiar novamente da origem esconderia problemas do backup.</p></details>
     <details><summary>2. Por que perfil-recuperar não comprova restauração numa outra pasta?</summary><p>Porque lê o keyring padrão original. A verificação precisa apontar explicitamente para o restaurado.</p></details>
     <details><summary>3. Por que não guardar só a chave mais recente?</summary><p>Textos antigos podem depender de outras chaves, e registros de revogação também precisam ser preservados. Restaurar apenas parte do estado pode perder dados ou mudar decisões de segurança.</p></details>
-    <details><summary>4. Igualdade de bytes neste teste certifica seus XMLs reais?</summary><p>Não. A comparação usa apenas os arquivos fictícios da fixture. A prova anterior real comparou metadados, não bytes.</p></details>
+    <details><summary>4. Igualdade de bytes neste teste certifica seus XMLs reais?</summary><p>Não. A fixture usa arquivos fictícios. Separadamente, você confirmou SHA-256 nas cópias nativas e recuperou o texto pelo restaurado. Isso não certifica ausência de alterações após a leitura final nem recuperação em outro Windows.</p></details>
     <details><summary>5. Podemos colocar o backup protegido por DPAPI no Git?</summary><p>Não. Continua sendo material criptográfico sensível, possivelmente de vários projetos; exige armazenamento privado e acesso restrito.</p></details>
     <details><summary>6. Por que não houve RED?</summary><p>O novo caso caracteriza cópia/restauração com funcionalidades já existentes. Passou de primeira; não fabricamos erro para simular ausência de comportamento.</p></details>
+    <details><summary>7. Dois arquivos copiados já provam recuperação?</summary><p>Não. A integridade confere a cópia; a recuperação pelo provider apontado para o restaurado confirma que o contexto atual consegue utilizá-la para o texto fictício.</p></details>
+    <details><summary>8. Um erro no terminal impede comandos enviados depois?</summary><p>Não necessariamente. Enviar comandos separados pode continuar a operação sem as condições esperadas. Use o bloco autocontido inteiro e pare diante de qualquer falha; não repita cópias nem apague artefatos automaticamente.</p></details>
   </section>
-  <p><a href="../operacao/backup-keyring-mesmo-windows.md">Procedimento proposto e decisões pendentes antes da cópia real.</a></p>
+  <p><a href="../operacao/backup-keyring-mesmo-windows.md">Procedimento, registro da prova nativa e limites ainda pendentes.</a></p>
 </main></body>
 </html>

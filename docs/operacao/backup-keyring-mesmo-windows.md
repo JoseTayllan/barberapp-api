@@ -4,7 +4,9 @@
 
 O mantenedor escolheu começar pela opção 1: recuperação de arquivos do keyring no mesmo Windows/usuário, com o contexto DPAPI preservado. Não inclui formatação, troca de computador/usuário, perda do perfil ou desastre no disco. Não muda a proteção da API para certificado/cofre.
 
-Estado: um teste de caracterização com chaves e texto fictícios passou no WSL; nenhuma chave real foi copiada ou restaurada. Suíte completa: 213 aprovados (22 unitários + 191 integração), zero falhas/ignorados; build sem avisos/erros e formatação do recorte aprovada. Nenhum código de implementação foi necessário. O diff e este procedimento aguardam revisão; não executar cópia real antes de autorização específica e escolha do destino.
+Estado atualizado em 24/10/2026: caracterização aprovada/publicada em 932921a e prova nativa posterior executada pelo mantenedor, com autorizações separadas. Dois XMLs do perfil foram copiados e restaurados em outra pasta; api-recuperar usando o restaurado recuperou o texto fictício com saída 0. Não houve restauração sobre o keyring ativo. Detalhes e limites abaixo.
+
+Validação automática anterior no WSL: 213 aprovados (22 unitários + 191 integração), zero falhas/ignorados; build sem avisos/erros e formatação do recorte aprovada. Nenhum código de implementação foi necessário. Esta atualização apenas documental não repete esses testes; seu diff aguarda revisão.
 
 ## O que o teste verifica
 
@@ -18,10 +20,10 @@ Passou de primeira por usar funcionalidades já existentes. Não houve RED funci
 
 - Foi executada no WSL: chaves fictícias em diretório explícito, sem DPAPI em disco. Não certifica restauração do perfil Windows.
 - O keyring gerado nesse caso não possui histórico de rotação/revogação. O filtro copia todos os XMLs, mas esse teste não simula revogações e não certifica a política de restaurar backups históricos.
-- Igualdade de bytes é verificada apenas nas chaves fictícias. A prova Windows anterior comparou somente nomes, tamanhos e datas de escrita das chaves reais; não confundir essas evidências.
+- Igualdade de bytes na fixture usa apenas chaves fictícias. A prova Windows inicial comparou metadados; a operação posterior de backup comparou SHA-256 localmente durante as cópias. São evidências diferentes; não houve comparação após a recuperação nativa final.
 - Não é backup de banco, User Secrets ou identidade DPAPI. Não testa tokens reais, queda de energia ou pagamento.
 
-## Antes de copiar material real — decisões pendentes
+## Condições para copiar material real — exigidas a cada nova operação
 
 1. Aprovar este diff/procedimento e autorizar explicitamente a cópia dos XMLs protegidos. Backup acessa/copia material criptográfico; a autorização anterior de inspeção não cobre essa cópia.
 2. Escolher pasta de backup persistente fora do repositório, fora do temporário e sem sincronização pública. Não versionar XMLs, compactados ou arquivos de chaves. Backup no mesmo disco não protege contra perda desse disco.
@@ -29,7 +31,7 @@ Passou de primeira por usar funcionalidades já existentes. Não houve RED funci
 4. Reconhecer que o keyring padrão do perfil pode atender outros projetos. Uma cópia integral pode incluir suas chaves também; isso precisa ser aceito explicitamente. Não tentar identificar chaves do BarberApp apenas pelo nome do arquivo.
 5. Manter a API parada e evitar outros processos que modifiquem o repositório compartilhado durante a captura. Se o conjunto mudar, parar/reavaliar, sem apagar chaves para estabilizar a comparação.
 
-## Procedimento proposto, sem execução real nesta etapa
+## Procedimento de referência
 
 1. Registrar apenas contexto e metadados necessários; nunca publicar conteúdo de XMLs/payloads. Guardar o texto cifrado fictício da prova de forma privada, separado dos resultados públicos.
 2. Criar um destino de backup novo e restrito, sem sobrescrever backups anteriores. Preservar os XMLs do repositório: chaves e registros de revogação existentes. Não selecionar só a chave mais recente nem descartar expiradas. Recusar links, formatos inesperados ou mudanças durante a captura até revisão.
@@ -39,7 +41,19 @@ Passou de primeira por usar funcionalidades já existentes. Não houve RED funci
 6. Não usar perfil-recuperar para provar o backup: ele consulta o keyring padrão original, podendo passar mesmo que o backup esteja incorreto. A prova precisa ler a pasta restaurada.
 7. Conferir recuperação e metadados após a leitura. Registrar somente resultado/contexto e limitações, sem atribuir sucesso a uma recuperação feita da origem. Não automatizar limpeza nem alterar a configuração da API para usar a cópia.
 
-Não há comandos de cópia real neste documento: destino, ACL, alcance do keyring compartilhado e autorização específica ainda estão pendentes. Depois da revisão, a operação será guiada um passo por vez.
+Novas operações continuam exigindo confirmação do destino, ACL, alcance e autorização. Os passos abaixo registram a operação já autorizada; não autorizam novas cópias ou restauração sobre a instalação ativa.
+
+## Evidência operacional fornecida pelo mantenedor — 24/10/2026
+
+- Autorizou especificamente ajuste de ACL e cópia integral do keyring do perfil, reconhecendo eventuais chaves de outros projetos. Escolheu pasta persistente fora do Git/temporário e confirmou API parada.
+- Removeu acesso herdado de CodexSandboxUsers na pasta de backup. Saídas das ACLs das pastas mostraram somente seu usuário, SYSTEM e administradores; permissões individuais dos XMLs não foram auditadas.
+- Primeira tentativa falhou por variável de sessão nula. Compare-Object não concluiu e foreach não copiou nada. O destino foi confirmado vazio por inspeção de metadados; não foi considerado backup válido. Corrigiu-se a operação com bloco autocontido, ErrorActionPreference Stop e variáveis locais, sem alterar código da API.
+- Relatou dois XMLs copiados, SHA-256 de origem/cópia coincidentes e ausência de mudança de conteúdo detectada nos originais durante essa conferência. Depois copiou somente do backup para outro diretório novo e confirmou integridade de dois XMLs restaurados. Hashes e conteúdo não foram publicados.
+- Recuperou o arquivo fictício candidato mais recente, de 22/10 às 19:34, usando api-recuperar com diretório restaurado explícito, root da API e propósito BarberApp.MercadoPago.Tokens.v1. O horário não estabelece proveniência; o auxiliar confirmou o conteúdo fictício esperado.
+- Resultado informado: origem ApiServices, status Recuperado, processoId 3140, código de saída 0. identidadeHash 151FD836BBDE1D2597700D4C2183C013D39E8C0D76B1446F4F29DFB2595A0E5F, igual ao contexto da prova anterior. Esse hash identifica o contexto da aplicação; não é hash de chave nem segredo.
+- Auxiliar com geração automática desabilitada. Não houve comparação pós-recuperação dos XMLs; não afirmar imutabilidade final, ausência absoluta de escrita ou consistência sob concorrência. Não foram alterados diretório original ou configuração da API. Nenhum arquivo foi apagado e nenhum material foi enviado ao WSL/Git pelo agente.
+
+Conclusão: recuperação do texto fictício a partir da cópia restaurada no mesmo Windows/usuário. Não certifica tokens reais, restauração de banco/User Secrets, crash, perda do contexto DPAPI ou desastre no disco. O conteúdo dos XMLs não foi aberto pelo agente; evidências criptográficas são saídas da execução do mantenedor.
 
 ## Regras de restauração
 
@@ -47,7 +61,7 @@ Não há comandos de cópia real neste documento: destino, ACL, alcance do keyri
 - Não reintroduzir chaves revogadas por restauração de um backup anterior à revogação. Avaliar histórico completo e registros atuais antes de qualquer restauração efetiva; não sobrepor o keyring ativo para fazer o teste passar.
 - A cópia pode conter chaves de outros projetos: tratar como material sensível mesmo com DPAPI. Não enviar para chat, Git ou storage público.
 - Se o contexto DPAPI for perdido, esta opção não garante recuperação. Não prometer portabilidade por copiar os XMLs e não exportar master keys do Windows como atalho.
-- Os gates de backup/restauração do perfil Windows real e de desastre permanecem abertos até evidência específica. Esta escolha reduz o escopo; não transforma risco pendente em garantia.
+- O gate local de recuperação de texto fictício via cópia restaurada foi atendido no contexto relatado. Desastre, perda do contexto DPAPI e recuperação de tokens reais continuam abertos. Não transformar a prova limitada em garantia geral.
 
 ## Fontes oficiais
 
