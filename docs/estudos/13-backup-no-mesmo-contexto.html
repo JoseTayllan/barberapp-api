@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudo 13 — Backup no mesmo contexto</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.7; }
+    body { margin: 0; background: #101827; color: #e6edf8; }
+    main { max-width: 760px; margin: auto; padding: 24px 18px 60px; }
+    h1, h2, a { color: #a8c8ff; }
+    section { margin: 18px 0; padding: 20px; background: #1b273b; border-radius: 16px; }
+    code { color: #b6e6cd; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #425474; padding: 14px 0; }
+    summary { cursor: pointer; font-weight: 650; }
+  </style>
+</head>
+<body><main>
+  <h1>Backup só serve se a recuperação ler a cópia certa</h1>
+  <p>Escopo escolhido: mesmo Windows e usuário, com o contexto DPAPI preservado. Não cobre formatação, perda do perfil ou outro computador. Somente chaves fictícias foram copiadas nesta etapa.</p>
+  <p>GREEN WSL: 213 aprovados (22 unitários + 191 integração), zero falhas/ignorados; build sem avisos/erros e formatação aprovada. Um novo teste de caracterização passou de primeira, sem alteração da implementação. Diff em revisão.</p>
+  <section>
+    <h2>O que já sabíamos?</h2>
+    <p>No estudo 12 você protegeu e recuperou um texto fictício em processos separados no Windows usando o keyring do perfil. Isso demonstrou leitura nesse contexto; não demonstrou que uma cópia de backup poderia ser restaurada.</p>
+    <p>Escolhemos cobrir perda acidental dos arquivos, mantendo usuário/Windows/contexto. Uma cópia no mesmo disco continua sujeita à perda desse disco. O risco de desastre não desaparece porque o escopo foi reduzido.</p>
+  </section>
+  <section>
+    <h2>O novo teste, passo a passo</h2>
+    <ol>
+      <li>O primeiro processo inicia a composição da API com dependências isoladas e protege texto fictício.</li>
+      <li>O teste copia os XMLs fictícios da origem para uma pasta de backup nova.</li>
+      <li>Copia do backup, não da origem, para outra pasta restaurada.</li>
+      <li>Outro processo recupera o texto apontando explicitamente para o restaurado, com mesmo root e propósito.</li>
+      <li>Confere quantidades e igualdade dos bytes fictícios nas três pastas após a leitura, sem publicar XMLs ou bytes nos erros.</li>
+    </ol>
+    <p>Os quatro testes anteriores ficaram intactos. Não criamos novo modo no auxiliar: api-recuperar já recebe diretório explícito e desabilita geração automática.</p>
+  </section>
+  <section>
+    <h2>A armadilha do falso sucesso</h2>
+    <p>Se você restaurar numa pasta e executar perfil-recuperar, ele vai consultar o keyring padrão original. Poderia funcionar mesmo com a cópia vazia! Esse resultado não comprovaria restauração.</p>
+    <p>Por isso o procedimento futuro usará apenas api-recuperar apontado explicitamente para a pasta restaurada aprovada. Não usar api-proteger contra material real. Nada será restaurado sobre o original para provar um cenário.</p>
+  </section>
+  <section>
+    <h2>Mesmo Windows não é qualquer Windows</h2>
+    <p>As chaves protegidas com DPAPI dependem do contexto necessário para abri-las. Copiar XMLs não promete recuperar depois de formatar ou trocar usuário/computador. Não exportaremos master keys do Windows como atalho.</p>
+    <p>No WSL, o teste usa keyring fictício em diretório explícito sem DPAPI em disco. No Windows a factory solicita DPAPI para chaves fictícias, mas essa execução nativa ainda não aconteceu para o novo teste. Não confundir prova portável do fluxo com prova do seu backup real.</p>
+  </section>
+  <section>
+    <h2>O que precisa estar no backup?</h2>
+    <p>Não escolher só a chave mais nova. Dados antigos podem precisar de chaves expiradas. O repositório também possui XMLs de revogação: omiti-los pode mudar a decisão de aceitar uma chave. Preservar o estado completo e não sobrepor cegamente um backup anterior à revogação.</p>
+    <p>O teste copia todos os XMLs gerados na fixture, mas não cria histórico de rotação/revogação; não é prova desses cenários. E o keyring padrão do perfil pode conter chaves de outros projetos: uma cópia integral exige consentimento sobre esse alcance.</p>
+  </section>
+  <section>
+    <h2>O aviso de nulabilidade</h2>
+    <p>O teste inicial passou, mas o compilador avisou CS8714 porque Path.GetFileName como seletor podia resultar em chave de dicionário anotada como anulável. Substituímos o seletor por new FileInfo(arquivo).Name, que retorna nome não nulo para esses arquivos existentes.</p>
+    <p>Não era RED funcional nem motivo para alterar a API. Corrigimos o aviso na preparação do novo teste, antes de pedir revisão, e a validação final ficou sem warnings. Os casos anteriores não foram enfraquecidos.</p>
+  </section>
+  <section>
+    <h2>Antes de qualquer cópia real</h2>
+    <p>Revisar teste/procedimento, escolher destino persistente fora de Git e temporário, conferir ACL, reconhecer o keyring compartilhado e autorizar especificamente a cópia. Inspeção de opções e cópia de material protegido são operações diferentes.</p>
+    <p>Nenhum segredo real foi copiado, enviado ao WSL ou exposto. Não alteramos a API, a criptografia, a conta Mercado Pago ou o keyring original. A restauração nativa da cópia ainda está pendente.</p>
+  </section>
+  <section>
+    <h2>Exercícios com respostas</h2>
+    <details><summary>1. Por que copiar do backup para o restaurado?</summary><p>Para provar o caminho que seria usado na recuperação. Copiar novamente da origem esconderia problemas do backup.</p></details>
+    <details><summary>2. Por que perfil-recuperar não comprova restauração numa outra pasta?</summary><p>Porque lê o keyring padrão original. A verificação precisa apontar explicitamente para o restaurado.</p></details>
+    <details><summary>3. Por que não guardar só a chave mais recente?</summary><p>Textos antigos podem depender de outras chaves, e registros de revogação também precisam ser preservados. Restaurar apenas parte do estado pode perder dados ou mudar decisões de segurança.</p></details>
+    <details><summary>4. Igualdade de bytes neste teste certifica seus XMLs reais?</summary><p>Não. A comparação usa apenas os arquivos fictícios da fixture. A prova anterior real comparou metadados, não bytes.</p></details>
+    <details><summary>5. Podemos colocar o backup protegido por DPAPI no Git?</summary><p>Não. Continua sendo material criptográfico sensível, possivelmente de vários projetos; exige armazenamento privado e acesso restrito.</p></details>
+    <details><summary>6. Por que não houve RED?</summary><p>O novo caso caracteriza cópia/restauração com funcionalidades já existentes. Passou de primeira; não fabricamos erro para simular ausência de comportamento.</p></details>
+  </section>
+  <p><a href="../operacao/backup-keyring-mesmo-windows.md">Procedimento proposto e decisões pendentes antes da cópia real.</a></p>
+</main></body>
+</html>

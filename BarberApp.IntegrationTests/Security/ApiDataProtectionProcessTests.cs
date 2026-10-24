@@ -55,6 +55,39 @@ public sealed class ApiDataProtectionProcessTests : IDisposable
         Assert.Empty(Directory.GetFiles(pastaVazia, "key-*.xml"));
     }
 
+    [Fact]
+    public async Task ProviderDaApi_DeveRecuperarTexto_ComChavesRestauradasDeBackupSemAlterarOriginais()
+    {
+        var identidade = await ProtegerAsync();
+        var arquivos = Directory.GetFiles(PastaChaves, "*.xml");
+        Assert.NotEmpty(arquivos);
+        // Apenas material fictício gerado por este teste; nunca lê o perfil do usuário.
+        var originais = arquivos.ToDictionary(arquivo => new FileInfo(arquivo).Name, File.ReadAllBytes);
+        var backup = Directory.CreateDirectory(Path.Combine(_temporario.FullName, "backup")).FullName;
+        var restaurado = Directory.CreateDirectory(Path.Combine(_temporario.FullName, "restaurado")).FullName;
+        foreach (var arquivo in arquivos)
+        {
+            var copia = Path.Combine(backup, Path.GetFileName(arquivo));
+            File.Copy(arquivo, copia, overwrite: false);
+            File.Copy(copia, Path.Combine(restaurado, Path.GetFileName(arquivo)), overwrite: false);
+        }
+
+        var resultado = await ExecutarAsync("api-recuperar", restaurado, ContentRoot, Proposito);
+        Assert.Equal(identidade, ValidarResultado(resultado, "Recuperado", codigo: 0));
+        Assert.Equal(arquivos.Length, Directory.GetFiles(PastaChaves, "*.xml").Length);
+        Assert.Equal(arquivos.Length, Directory.GetFiles(backup, "*.xml").Length);
+        Assert.Equal(arquivos.Length, Directory.GetFiles(restaurado, "*.xml").Length);
+        foreach (var original in originais)
+        {
+            foreach (var pasta in new[] { PastaChaves, backup, restaurado })
+            {
+                // Assert recebe só booleano/mensagem fixa, não publica bytes de chaves.
+                Assert.True(original.Value.SequenceEqual(File.ReadAllBytes(Path.Combine(pasta, original.Key))),
+                    "O material fictício deve permanecer igual após cópia/restauração/leitura.");
+            }
+        }
+    }
+
     private string PastaChaves => Path.Combine(_temporario.FullName, "chaves");
     private string ArquivoPayload => Path.Combine(_temporario.FullName, "payload-protegido.txt");
     private string ContentRoot => Path.Combine(_temporario.FullName, "api");
